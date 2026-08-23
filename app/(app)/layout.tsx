@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
+import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { NotificationSetup } from "@/components/notifications/NotificationSetupLoader";
+import { ThemeToggle } from "@/components/theme/ThemeToggleLoader";
+import { TopNav } from "@/components/layout/TopNav";
 
 // Belt-and-suspenders with proxy.ts: proxy already redirects unauthenticated
 // requests to /login, but a Server Component that renders without going
@@ -21,32 +23,29 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-6">
-          <span className="font-semibold">Mix-Match</span>
-          <nav className="flex gap-4 text-sm text-muted-foreground">
-            <Link href="/tasks" className="hover:text-foreground">
-              Tasks
-            </Link>
-            <Link href="/notes" className="hover:text-foreground">
-              Notes
-            </Link>
-            <Link href="/calendar" className="hover:text-foreground">
-              Calendar
-            </Link>
-          </nav>
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-4 border-b bg-background/95 px-4 py-2.5 backdrop-blur supports-backdrop-filter:bg-background/75">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="flex size-7 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+              M
+            </div>
+            <span className="hidden font-semibold sm:inline">Mix-Match</span>
+          </div>
+          <TopNav />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5">
           <NotificationSetup />
           <GlobalSearch />
+          <ThemeToggle />
           <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm">
-              Sign out
+            <Button type="submit" variant="ghost" size="sm" aria-label="Sign out">
+              <LogOut className="size-4" />
+              <span className="hidden md:inline">Sign out</span>
             </Button>
           </form>
         </div>
       </header>
-      <div className="flex flex-1">{children}</div>
+      <div className="flex flex-1 bg-muted/30">{children}</div>
     </div>
   );
 }

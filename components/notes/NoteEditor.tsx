@@ -59,32 +59,39 @@ export function NoteEditor({
         </div>
       )}
 
-      <Input
-        value={title}
-        onChange={(e) => {
-          setTitle(e.target.value);
-          setDirty(true);
-        }}
-        placeholder="Untitled"
-        className="text-lg font-semibold"
-      />
-
-      <TagPicker taggableId={note.id} taggableType="note" allTags={allTags} assignedTags={assignedTags} />
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <textarea
-          value={body}
+      <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+        <Input
+          value={title}
           onChange={(e) => {
-            setBody(e.target.value);
+            setTitle(e.target.value);
             setDirty(true);
           }}
-          placeholder="Write in markdown... use #tags anywhere in the text"
-          className="min-h-96 rounded-md border bg-transparent p-3 font-mono text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          placeholder="Untitled"
+          className="border-none px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
         />
-        <div className="prose prose-sm min-h-96 max-w-none rounded-md border p-3 dark:prose-invert">
-          <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-            {body || "*Nothing to preview yet.*"}
-          </Markdown>
+        <TagPicker taggableId={note.id} taggableType="note" allTags={allTags} assignedTags={assignedTags} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <span className="px-1 text-xs font-medium text-muted-foreground">Markdown</span>
+          <textarea
+            value={body}
+            onChange={(e) => {
+              setBody(e.target.value);
+              setDirty(true);
+            }}
+            placeholder="Write in markdown... use #tags anywhere in the text"
+            className="min-h-96 rounded-xl border bg-card p-3 font-mono text-sm shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <span className="px-1 text-xs font-medium text-muted-foreground">Preview</span>
+          <div className="prose prose-sm min-h-96 max-w-none rounded-xl border bg-card p-3 shadow-sm dark:prose-invert">
+            <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+              {body || "*Nothing to preview yet.*"}
+            </Markdown>
+          </div>
         </div>
       </div>
 

@@ -3,6 +3,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import Link from "next/link";
 import { isToday } from "date-fns";
+import { Plus } from "lucide-react";
 import { EventChip } from "@/components/calendar/EventChip";
 import { dayKey } from "@/lib/calendar/grid";
 import type { Database } from "@/lib/supabase/database.types";
@@ -25,22 +26,26 @@ export function DayCell({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dayKey(date) });
 
+  const bg = isOver ? "bg-primary/10" : dimmed ? "bg-muted/20" : "bg-background";
+
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-h-24 flex-col gap-1 border p-1 ${dimmed ? "bg-muted/30 text-muted-foreground" : ""} ${isOver ? "bg-accent" : ""}`}
+      className={`group/cell flex min-h-24 flex-col gap-1 p-1.5 transition-colors ${bg} ${dimmed ? "text-muted-foreground" : ""}`}
     >
       <div className="flex items-center justify-between">
-        <span className={`text-xs ${isToday(date) ? "flex size-5 items-center justify-center rounded-full bg-foreground text-background" : ""}`}>
+        <span
+          className={`flex size-5 items-center justify-center rounded-full text-xs ${isToday(date) ? "bg-primary font-medium text-primary-foreground" : ""}`}
+        >
           {date.getDate()}
         </span>
         <button
           type="button"
           onClick={() => onAddEvent(date)}
-          className="text-xs text-muted-foreground hover:text-foreground"
+          className="flex size-4 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover/cell:opacity-100"
           aria-label="Add event"
         >
-          +
+          <Plus className="size-3.5" />
         </button>
       </div>
       <div className="flex flex-col gap-0.5">

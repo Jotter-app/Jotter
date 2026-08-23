@@ -1,0 +1,22 @@
+import type { ReactNode } from "react";
+import { ThemeToggle } from "@/components/theme/ThemeToggleLoader";
+
+export function AuthPageShell({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-muted/30 px-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex size-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+          M
+        </div>
+        <span className="font-semibold">Mix-Match</span>
+      </div>
+      <div className="flex w-full max-w-sm flex-col gap-6 rounded-xl border bg-card p-6 shadow-sm">
+        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        {children}
+      </div>
+    </main>
+  );
+}

@@ -33,9 +33,12 @@ export function MonthView({
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-md border bg-border text-sm">
+      <div className="grid grid-cols-7 gap-px bg-border text-sm">
         {WEEKDAY_LABELS.map((label) => (
-          <div key={label} className="bg-background p-1 text-center text-xs text-muted-foreground">
+          <div
+            key={label}
+            className="bg-muted/50 p-1.5 text-center text-xs font-medium text-muted-foreground"
+          >
             {label}
           </div>
         ))}

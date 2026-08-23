@@ -13,9 +13,11 @@ export default async function NotesPage() {
   const { roots, rootNotes } = buildFolderTree(folders ?? [], notes ?? []);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-      <h1 className="text-2xl font-semibold">Notes</h1>
-      <NotesTree roots={roots} rootNotes={rootNotes} />
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6">
+      <h1 className="text-2xl font-semibold tracking-tight">Notes</h1>
+      <div className="rounded-xl border bg-card p-4 shadow-sm">
+        <NotesTree roots={roots} rootNotes={rootNotes} />
+      </div>
     </main>
   );
 }

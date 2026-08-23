@@ -31,9 +31,12 @@ export function WeekView({
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-7 gap-px overflow-hidden rounded-md border bg-border text-sm">
+      <div className="grid grid-cols-7 gap-px bg-border text-sm">
         {days.map((date) => (
-          <div key={dayKey(date)} className="bg-background p-1 text-center text-xs text-muted-foreground">
+          <div
+            key={dayKey(date)}
+            className="bg-muted/50 p-1.5 text-center text-xs font-medium text-muted-foreground"
+          >
             {format(date, "EEE d")}
           </div>
         ))}

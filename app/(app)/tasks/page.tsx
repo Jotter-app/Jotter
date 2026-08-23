@@ -46,25 +46,36 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   const upcoming = active.filter((t) => t.due_at && new Date(t.due_at) > todayEnd);
   const noDueDate = active.filter((t) => !t.due_at);
 
+  // A restrained accent per section: overdue earns urgency (destructive),
+  // today earns the app's one accent color, the rest stay neutral.
   const sections = [
-    { title: "Overdue", tasks: overdue },
-    { title: "Today", tasks: today },
-    { title: "Upcoming", tasks: upcoming },
-    { title: "No due date", tasks: noDueDate },
+    { title: "Overdue", tasks: overdue, dot: "bg-destructive", ring: "ring-destructive/20" },
+    { title: "Today", tasks: today, dot: "bg-primary", ring: "ring-primary/20" },
+    { title: "Upcoming", tasks: upcoming, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
+    { title: "No due date", tasks: noDueDate, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
   ];
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-6">
-      <h1 className="text-2xl font-semibold">Tasks</h1>
-      <QuickAddBar />
+    <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6">
+      <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
 
-      <TagFilterRow allTags={allTags} activeTagId={typeof tagFilter === "string" ? tagFilter : undefined} />
+      <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+        <QuickAddBar />
+        <TagFilterRow allTags={allTags} activeTagId={typeof tagFilter === "string" ? tagFilter : undefined} />
+      </div>
 
       {sections.map(
         (section) =>
           section.tasks.length > 0 && (
-            <section key={section.title} className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium text-muted-foreground">{section.title}</h2>
+            <section
+              key={section.title}
+              className={`rounded-xl border bg-card p-4 shadow-sm ring-1 ${section.ring}`}
+            >
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                <span className={`size-2 rounded-full ${section.dot}`} />
+                {section.title}
+                <span className="font-normal text-muted-foreground">{section.tasks.length}</span>
+              </h2>
               <ul className="flex flex-col gap-2">
                 {section.tasks.map((task) => (
                   <TaskRow
@@ -80,15 +91,21 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       )}
 
       {active.length === 0 && (
-        <p className="text-sm text-muted-foreground">No tasks yet -- add one above.</p>
+        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+          No tasks yet -- add one above.
+        </p>
       )}
 
       {completed.length > 0 && (
-        <details className="flex flex-col gap-2">
-          <summary className="cursor-pointer text-sm font-medium text-muted-foreground">
-            Completed ({completed.length})
+        <details className="group rounded-xl border bg-card p-4 shadow-sm">
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground marker:content-none">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="transition-transform group-open:rotate-90">&rsaquo;</span>
+              Completed
+              <span className="font-normal">{completed.length}</span>
+            </span>
           </summary>
-          <ul className="mt-2 flex flex-col gap-2">
+          <ul className="mt-3 flex flex-col gap-2">
             {completed.map((task) => (
               <TaskRow
                 key={task.id}

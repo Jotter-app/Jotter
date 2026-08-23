@@ -71,7 +71,7 @@ export function TaskRow({
 
   if (editing) {
     return (
-      <li className="flex flex-col gap-2 rounded-md border p-3">
+      <li className="flex flex-col gap-2 rounded-lg border bg-background p-3 shadow-sm">
         <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
         <div className="flex flex-wrap gap-2">
           <Select value={String(priority)} onValueChange={(v) => setPriority(Number(v))}>
@@ -109,7 +109,7 @@ export function TaskRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 rounded-md border p-3">
+    <li className="group flex flex-col gap-2 rounded-lg border bg-background p-3 transition-colors hover:border-border hover:bg-accent/30">
       <div className="flex items-center gap-3">
         <Checkbox checked={completed} onCheckedChange={handleToggle} disabled={isPending} />
         <button
@@ -122,11 +122,11 @@ export function TaskRow({
         {task.priority > 0 && (
           <span
             title={priorityLabel(task.priority)}
-            className={`h-2 w-2 rounded-full ${priorityColor(task.priority)}`}
+            className={`h-2 w-2 shrink-0 rounded-full ${priorityColor(task.priority)}`}
           />
         )}
         {task.due_at && (
-          <span className="text-xs text-muted-foreground">
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
             {format(new Date(task.due_at), "MMM d, h:mm a")}
           </span>
         )}

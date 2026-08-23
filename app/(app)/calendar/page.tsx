@@ -10,6 +10,7 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { MonthView } from "@/components/calendar/MonthView";
 import { WeekView } from "@/components/calendar/WeekView";
@@ -55,27 +56,29 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-3 shadow-sm">
+        <h1 className="pl-1 text-xl font-semibold tracking-tight">
           {view === "month" ? format(anchorDate, "MMMM yyyy") : `Week of ${format(startOfWeek(anchorDate), "MMM d")}`}
         </h1>
         <div className="flex items-center gap-2">
-          <Link href={`/calendar?view=${view}&date=${dateParam(prevAnchor)}`}>
-            <Button variant="outline" size="sm">
-              &larr; Prev
-            </Button>
-          </Link>
-          <Link href={`/calendar?view=${view}&date=${dateParam(new Date())}`}>
-            <Button variant="outline" size="sm">
-              Today
-            </Button>
-          </Link>
-          <Link href={`/calendar?view=${view}&date=${dateParam(nextAnchor)}`}>
-            <Button variant="outline" size="sm">
-              Next &rarr;
-            </Button>
-          </Link>
-          <div className="ml-2 flex gap-1 rounded-md border p-0.5">
+          <div className="flex items-center gap-1">
+            <Link href={`/calendar?view=${view}&date=${dateParam(prevAnchor)}`}>
+              <Button variant="outline" size="sm" aria-label="Previous">
+                <ChevronLeft className="size-4" />
+              </Button>
+            </Link>
+            <Link href={`/calendar?view=${view}&date=${dateParam(new Date())}`}>
+              <Button variant="outline" size="sm">
+                Today
+              </Button>
+            </Link>
+            <Link href={`/calendar?view=${view}&date=${dateParam(nextAnchor)}`}>
+              <Button variant="outline" size="sm" aria-label="Next">
+                <ChevronRight className="size-4" />
+              </Button>
+            </Link>
+          </div>
+          <div className="flex gap-1 rounded-md border p-0.5">
             <Link href={`/calendar?view=month&date=${dateParam(anchorDate)}`}>
               <Button variant={view === "month" ? "default" : "ghost"} size="sm">
                 Month
@@ -90,11 +93,13 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         </div>
       </div>
 
-      {view === "month" ? (
-        <MonthView monthDate={anchorDate} events={events ?? []} tasksWithDueDate={tasksWithDueDate} />
-      ) : (
-        <WeekView weekDate={anchorDate} events={events ?? []} tasksWithDueDate={tasksWithDueDate} />
-      )}
+      <div className="overflow-hidden rounded-xl border shadow-sm">
+        {view === "month" ? (
+          <MonthView monthDate={anchorDate} events={events ?? []} tasksWithDueDate={tasksWithDueDate} />
+        ) : (
+          <WeekView weekDate={anchorDate} events={events ?? []} tasksWithDueDate={tasksWithDueDate} />
+        )}
+      </div>
     </main>
   );
 }

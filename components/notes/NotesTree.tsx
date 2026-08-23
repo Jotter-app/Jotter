@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FolderDeleteDialog } from "@/components/notes/FolderDeleteDialog";
@@ -53,15 +54,21 @@ function FolderRow({ node, depth, allFolders }: { node: FolderNode; depth: numbe
 
   return (
     <div style={{ marginLeft: depth * 16 }}>
-      <div className="flex items-center gap-2 rounded-md py-1">
+      <div className="group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40">
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="w-4 text-xs text-muted-foreground"
+          className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"
           aria-label={expanded ? "Collapse" : "Expand"}
         >
-          {expanded ? "▾" : "▸"}
+          {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </button>
+
+        {expanded ? (
+          <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <Folder className="size-4 shrink-0 text-muted-foreground" />
+        )}
 
         {renaming ? (
           <Input
@@ -78,28 +85,30 @@ function FolderRow({ node, depth, allFolders }: { node: FolderNode; depth: numbe
           </button>
         )}
 
-        <select
-          className="rounded border bg-transparent text-xs text-muted-foreground"
-          value=""
-          disabled={isPending}
-          onChange={(e) => {
-            if (!e.target.value) return;
-            const value = e.target.value === "__root__" ? null : e.target.value;
-            startTransition(() => moveFolder(node.id, value));
-          }}
-        >
-          <option value="" disabled>
-            Move to...
-          </option>
-          <option value="__root__">Root</option>
-          {moveOptions.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {opt.label}
+        <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 has-[:focus]:opacity-100">
+          <select
+            className="rounded border bg-transparent text-xs text-muted-foreground"
+            value=""
+            disabled={isPending}
+            onChange={(e) => {
+              if (!e.target.value) return;
+              const value = e.target.value === "__root__" ? null : e.target.value;
+              startTransition(() => moveFolder(node.id, value));
+            }}
+          >
+            <option value="" disabled>
+              Move to...
             </option>
-          ))}
-        </select>
+            <option value="__root__">Root</option>
+            {moveOptions.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
 
-        <FolderDeleteDialog folderId={node.id} folderName={node.name} hasContents={hasContents} />
+          <FolderDeleteDialog folderId={node.id} folderName={node.name} hasContents={hasContents} />
+        </div>
       </div>
 
       {expanded && (
@@ -131,34 +140,40 @@ function NoteRow({
   const [, startTransition] = useTransition();
 
   return (
-    <div className="flex items-center gap-2 py-1" style={{ marginLeft: depth * 16 }}>
-      <span className="w-4" />
-      <Link href={`/notes/${note.id}`} className="flex-1 text-sm hover:underline">
+    <div
+      className="group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40"
+      style={{ marginLeft: depth * 16 }}
+    >
+      <span className="size-4 shrink-0" />
+      <FileText className="size-4 shrink-0 text-muted-foreground" />
+      <Link href={`/notes/${note.id}`} className="flex-1 truncate text-sm hover:underline">
         {note.title || "Untitled"}
       </Link>
-      <select
-        className="rounded border bg-transparent text-xs text-muted-foreground"
-        value=""
-        onChange={(e) => {
-          if (!e.target.value) return;
-          const value = e.target.value === "__root__" ? null : e.target.value;
-          startTransition(() => moveNote(note.id, value));
-        }}
-      >
-        <option value="" disabled>
-          Move to...
-        </option>
-        <option value="__root__">Root</option>
-        {allFolders.map((opt) => (
-          <option key={opt.id} value={opt.id}>
-            {opt.label}
+      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 has-[:focus]:opacity-100">
+        <select
+          className="rounded border bg-transparent text-xs text-muted-foreground"
+          value=""
+          onChange={(e) => {
+            if (!e.target.value) return;
+            const value = e.target.value === "__root__" ? null : e.target.value;
+            startTransition(() => moveNote(note.id, value));
+          }}
+        >
+          <option value="" disabled>
+            Move to...
           </option>
-        ))}
-      </select>
-      <ConfirmDeleteButton
-        title={`Delete "${note.title || "Untitled"}"?`}
-        onConfirm={() => startTransition(() => deleteNote(note.id))}
-      />
+          <option value="__root__">Root</option>
+          {allFolders.map((opt) => (
+            <option key={opt.id} value={opt.id}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        <ConfirmDeleteButton
+          title={`Delete "${note.title || "Untitled"}"?`}
+          onConfirm={() => startTransition(() => deleteNote(note.id))}
+        />
+      </div>
     </div>
   );
 }
@@ -203,15 +218,19 @@ function NewItemRow({ parentFolderId }: { parentFolderId: string | null }) {
 
   return (
     <div className="flex items-center gap-3 py-1 text-xs text-muted-foreground" style={{ marginLeft: 16 }}>
-      <button type="button" onClick={() => setMode("folder")} className="hover:underline">
-        + folder
+      <button
+        type="button"
+        onClick={() => setMode("folder")}
+        className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+      >
+        <Plus className="size-3" /> folder
       </button>
       <button
         type="button"
         onClick={() => startTransition(() => createNote(parentFolderId))}
-        className="hover:underline"
+        className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
       >
-        + note
+        <Plus className="size-3" /> note
       </button>
     </div>
   );
