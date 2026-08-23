@@ -1,5 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { dayKey, dragEventChipToDay } from "./helpers";
 
 // Full-flow smoke test per the plan's Milestone 6 testing table: sign up ->
 // create a nested note -> quick-add an NL task -> drag a calendar event ->
@@ -8,34 +9,6 @@ import { createClient } from "@supabase/supabase-js";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-
-/** Mirrors lib/calendar/grid.ts's dayKey() so the test can address the same
- * droppable day cells the UI renders, in local time (not UTC). */
-function dayKey(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-async function dragEventChipToDay(page: Page, eventChip: ReturnType<Page["locator"]>, targetDayCell: ReturnType<Page["locator"]>) {
-  const sourceBox = await eventChip.boundingBox();
-  const targetBox = await targetDayCell.boundingBox();
-  if (!sourceBox || !targetBox) throw new Error("Could not measure drag source/target");
-
-  const sourceX = sourceBox.x + sourceBox.width / 2;
-  const sourceY = sourceBox.y + sourceBox.height / 2;
-  const targetX = targetBox.x + targetBox.width / 2;
-  const targetY = targetBox.y + targetBox.height / 2;
-
-  await page.mouse.move(sourceX, sourceY);
-  await page.mouse.down();
-  // dnd-kit's PointerSensor has an 8px activation distance -- a real drag
-  // gesture needs to clear that before it starts tracking as a drag.
-  await page.mouse.move(sourceX + 12, sourceY + 12, { steps: 5 });
-  await page.mouse.move(targetX, targetY, { steps: 10 });
-  await page.mouse.up();
-}
 
 test("sign up, create a nested note, quick-add a task, drag a calendar event, and schedule a reminder", async ({
   page,

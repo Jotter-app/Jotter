@@ -7,6 +7,11 @@ process.loadEnvFile(".env.local");
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
+  // All specs share one local dev server + one local Supabase/Postgres
+  // instance (no per-worker provisioning) -- running spec files in
+  // parallel contends for that shared infra and produces flaky timeouts
+  // that have nothing to do with the app itself.
+  workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
