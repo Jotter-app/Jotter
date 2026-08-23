@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
+import { GlobalSearch } from "@/components/search/GlobalSearch";
 
 // Belt-and-suspenders with proxy.ts: proxy already redirects unauthenticated
 // requests to /login, but a Server Component that renders without going
@@ -31,11 +32,14 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             </Link>
           </nav>
         </div>
-        <form action={signOut}>
-          <Button type="submit" variant="ghost" size="sm">
-            Sign out
-          </Button>
-        </form>
+        <div className="flex items-center gap-3">
+          <GlobalSearch />
+          <form action={signOut}>
+            <Button type="submit" variant="ghost" size="sm">
+              Sign out
+            </Button>
+          </form>
+        </div>
       </header>
       <div className="flex flex-1">{children}</div>
     </div>
