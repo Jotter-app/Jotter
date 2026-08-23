@@ -18,7 +18,11 @@ const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY");
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY");
 const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:noreply@example.com";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-const RESEND_FROM = Deno.env.get("RESEND_FROM") ?? "reminders@resend.dev";
+// onboarding@resend.dev is Resend's built-in sender that works without a
+// verified domain -- but it only delivers to the Resend account owner's
+// own email (or Resend's dedicated test addresses like delivered@resend.dev).
+// Once a domain is verified, set RESEND_FROM to a real address on it.
+const RESEND_FROM = Deno.env.get("RESEND_FROM") ?? "onboarding@resend.dev";
 
 const pushConfigured = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY);
 if (pushConfigured) {
