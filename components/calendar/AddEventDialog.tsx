@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { createEvent, type EventFormState } from "@/lib/actions/events";
 
@@ -21,10 +22,12 @@ export function AddEventDialog({
   open,
   onOpenChange,
   defaultDate,
+  defaultEventCreatesTask = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultDate: Date;
+  defaultEventCreatesTask?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(createEvent, initialState);
 
@@ -71,6 +74,10 @@ export function AddEventDialog({
             <div className="flex flex-col gap-2">
               <Label htmlFor="event-end">Ends</Label>
               <Input id="event-end" name="endAt" type="datetime-local" defaultValue={defaultEnd} required />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox id="event-also-task" name="alsoCreateTask" defaultChecked={defaultEventCreatesTask} />
+              <Label htmlFor="event-also-task">Also add as a task</Label>
             </div>
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           </div>

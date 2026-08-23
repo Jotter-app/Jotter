@@ -15,6 +15,8 @@ import { createClient } from "@/lib/supabase/server";
 import { MonthView } from "@/components/calendar/MonthView";
 import { WeekView } from "@/components/calendar/WeekView";
 import { Button } from "@/components/ui/button";
+import { getDefaultEventCreatesTask } from "@/lib/actions/settings";
+import type { LinkedTask } from "@/components/calendar/EventChip";
 
 function parseAnchorDate(value: string | undefined): Date {
   if (!value) return new Date();
@@ -31,7 +33,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const rangeEnd = view === "month" ? endOfWeek(endOfMonth(anchorDate)) : endOfWeek(anchorDate);
 
   const supabase = await createClient();
-  const [{ data: events }, { data: tasks }] = await Promise.all([
+  const [{ data: events }, { data: tasks }, defaultEventCreatesTask] = await Promise.all([
     supabase
       .from("events")
       .select()
@@ -44,11 +46,24 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
       .is("completed_at", null)
       .gte("due_at", rangeStart.toISOString())
       .lte("due_at", rangeEnd.toISOString()),
+    getDefaultEventCreatesTask(),
   ]);
 
-  const tasksWithDueDate = (tasks ?? []).filter(
-    (t): t is { id: string; title: string; due_at: string } => t.due_at !== null
-  );
+  const linkedTaskIds = (events ?? [])
+    .map((e) => e.linked_task_id)
+    .filter((id): id is string => id !== null);
+
+  const { data: linkedTasks } = linkedTaskIds.length
+    ? await supabase.from("tasks").select("id, completed_at, due_at").in("id", linkedTaskIds)
+    : { data: [] as LinkedTask[] };
+  const linkedTasksById = new Map((linkedTasks ?? []).map((t) => [t.id, t]));
+
+  // A task linked to an event is already represented by that event's chip
+  // -- showing it again in the plain tasks-due list would duplicate it in
+  // the day cell.
+  const tasksWithDueDate = (tasks ?? [])
+    .filter((t): t is { id: string; title: string; due_at: string } => t.due_at !== null)
+    .filter((t) => !linkedTaskIds.includes(t.id));
 
   const prevAnchor = view === "month" ? subMonths(anchorDate, 1) : subWeeks(anchorDate, 1);
   const nextAnchor = view === "month" ? addMonths(anchorDate, 1) : addWeeks(anchorDate, 1);
@@ -95,9 +110,21 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
 
       <div className="overflow-hidden rounded-xl border shadow-sm">
         {view === "month" ? (
-          <MonthView monthDate={anchorDate} events={events ?? []} tasksWithDueDate={tasksWithDueDate} />
+          <MonthView
+            monthDate={anchorDate}
+            events={events ?? []}
+            tasksWithDueDate={tasksWithDueDate}
+            linkedTasksById={linkedTasksById}
+            defaultEventCreatesTask={defaultEventCreatesTask}
+          />
         ) : (
-          <WeekView weekDate={anchorDate} events={events ?? []} tasksWithDueDate={tasksWithDueDate} />
+          <WeekView
+            weekDate={anchorDate}
+            events={events ?? []}
+            tasksWithDueDate={tasksWithDueDate}
+            linkedTasksById={linkedTasksById}
+            defaultEventCreatesTask={defaultEventCreatesTask}
+          />
         )}
       </div>
     </main>

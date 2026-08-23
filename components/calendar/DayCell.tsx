@@ -4,7 +4,7 @@ import { useDroppable } from "@dnd-kit/core";
 import Link from "next/link";
 import { isToday } from "date-fns";
 import { Plus } from "lucide-react";
-import { EventChip } from "@/components/calendar/EventChip";
+import { EventChip, type LinkedTask } from "@/components/calendar/EventChip";
 import { dayKey } from "@/lib/calendar/grid";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -17,12 +17,14 @@ export function DayCell({
   tasksDue,
   dimmed,
   onAddEvent,
+  linkedTasksById,
 }: {
   date: Date;
   events: Event[];
   tasksDue: TaskSummary[];
   dimmed?: boolean;
   onAddEvent: (date: Date) => void;
+  linkedTasksById?: Map<string, LinkedTask>;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dayKey(date) });
 
@@ -52,7 +54,11 @@ export function DayCell({
       </div>
       <div className="flex flex-col gap-0.5">
         {events.map((event) => (
-          <EventChip key={event.id} event={event} />
+          <EventChip
+            key={event.id}
+            event={event}
+            linkedTask={event.linked_task_id ? linkedTasksById?.get(event.linked_task_id) : undefined}
+          />
         ))}
         {tasksDue.map((task) => (
           <Link

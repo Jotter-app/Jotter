@@ -5,6 +5,7 @@ import { DndContext } from "@dnd-kit/core";
 import { format } from "date-fns";
 import { DayCell } from "@/components/calendar/DayCell";
 import { AddEventDialog } from "@/components/calendar/AddEventDialog";
+import type { LinkedTask } from "@/components/calendar/EventChip";
 import { buildWeek, dayKey } from "@/lib/calendar/grid";
 import { groupEventsByDay, groupTasksByDay } from "@/lib/calendar/group";
 import { useEventDragAndDrop } from "@/lib/calendar/useEventDragAndDrop";
@@ -17,10 +18,14 @@ export function WeekView({
   weekDate,
   events,
   tasksWithDueDate,
+  linkedTasksById,
+  defaultEventCreatesTask,
 }: {
   weekDate: Date;
   events: Event[];
   tasksWithDueDate: TaskSummary[];
+  linkedTasksById?: Map<string, LinkedTask>;
+  defaultEventCreatesTask?: boolean;
 }) {
   const [addEventDate, setAddEventDate] = useState<Date | null>(null);
   const { sensors, handleDragEnd } = useEventDragAndDrop();
@@ -47,6 +52,7 @@ export function WeekView({
               events={eventsByDay.get(dayKey(date)) ?? []}
               tasksDue={tasksByDay.get(dayKey(date)) ?? []}
               onAddEvent={setAddEventDate}
+              linkedTasksById={linkedTasksById}
             />
           </div>
         ))}
@@ -56,6 +62,7 @@ export function WeekView({
           open={addEventDate !== null}
           onOpenChange={(open) => !open && setAddEventDate(null)}
           defaultDate={addEventDate}
+          defaultEventCreatesTask={defaultEventCreatesTask}
         />
       )}
     </DndContext>

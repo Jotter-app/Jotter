@@ -4,6 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
+import { insertTaskCore } from "@/lib/actions/tasks";
+import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
 import type { Database } from "@/lib/supabase/database.types";
 
 const eventSchema = z.object({
@@ -11,6 +13,7 @@ const eventSchema = z.object({
   startAt: z.string(),
   endAt: z.string(),
   calendarColor: z.string().default("#3b82f6"),
+  alsoCreateTask: z.string().optional(),
 });
 
 export interface EventFormState {
@@ -22,6 +25,7 @@ export interface InsertEventParams {
   startAt: string;
   endAt: string;
   calendarColor?: string;
+  alsoCreateTask?: boolean;
 }
 
 export interface InsertEventResult {
@@ -35,8 +39,21 @@ export interface InsertEventResult {
 export async function insertEventCore(
   supabase: SupabaseClient<Database>,
   userId: string,
-  { title, startAt, endAt, calendarColor = "#3b82f6" }: InsertEventParams
+  { title, startAt, endAt, calendarColor = "#3b82f6", alsoCreateTask = false }: InsertEventParams
 ): Promise<InsertEventResult> {
+  // A companion-task creation failure should never block the event itself
+  // from being created -- same never-block-submission principle used
+  // elsewhere in this codebase (e.g. quick-add's date parsing).
+  let linkedTaskId: string | null = null;
+  if (alsoCreateTask) {
+    const taskResult = await insertTaskCore(supabase, userId, {
+      title,
+      dueAt: new Date(startAt),
+      tagNames: [],
+    });
+    linkedTaskId = taskResult.taskId;
+  }
+
   const { data: event, error } = await supabase
     .from("events")
     .insert({
@@ -45,6 +62,7 @@ export async function insertEventCore(
       start_at: startAt,
       end_at: endAt,
       calendar_color: calendarColor,
+      linked_task_id: linkedTaskId,
     })
     .select("id")
     .single();
@@ -64,6 +82,7 @@ export async function createEvent(
     startAt: formData.get("startAt"),
     endAt: formData.get("endAt"),
     calendarColor: formData.get("calendarColor") || undefined,
+    alsoCreateTask: formData.get("alsoCreateTask") || undefined,
   });
   if (!parsed.success) {
     return { error: "Title, start, and end are required." };
@@ -83,29 +102,89 @@ export async function createEvent(
     startAt: startAt.toISOString(),
     endAt: endAt.toISOString(),
     calendarColor: parsed.data.calendarColor,
+    // Native checkbox semantics: present ("on") when checked, absent from
+    // FormData entirely when unchecked.
+    alsoCreateTask: parsed.data.alsoCreateTask === "on",
   });
   if (!result.ok) return { error: result.error };
 
   revalidatePath("/calendar");
+  revalidatePath("/tasks");
   return { error: null };
+}
+
+// Core logic factored out (same seam as insertEventCore) so it's callable
+// both from the request-scoped action below and directly from integration
+// tests, which can't go through currentUserId() -- it depends on
+// next/headers' cookies(), which only works inside an actual Next.js
+// request.
+export async function rescheduleEventCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  eventId: string,
+  newStartAt: string,
+  newEndAt: string
+) {
+  const { data: before } = await supabase
+    .from("events")
+    .select("start_at, linked_task_id")
+    .eq("id", eventId)
+    .single();
+
+  await supabase.from("events").update({ start_at: newStartAt, end_at: newEndAt }).eq("id", eventId);
+
+  // Keep the linked task's due date (and therefore its reminder) moving
+  // with the event -- same delta the event itself just shifted by.
+  if (before?.linked_task_id) {
+    const deltaMs = new Date(newStartAt).getTime() - new Date(before.start_at).getTime();
+    const { data: task } = await supabase
+      .from("tasks")
+      .select("due_at")
+      .eq("id", before.linked_task_id)
+      .single();
+    if (task?.due_at) {
+      const newDueAt = new Date(new Date(task.due_at).getTime() + deltaMs).toISOString();
+      await supabase.from("tasks").update({ due_at: newDueAt }).eq("id", before.linked_task_id);
+      await syncTaskReminder(supabase, userId, before.linked_task_id, newDueAt);
+    }
+  }
 }
 
 export async function rescheduleEvent(eventId: string, newStartAt: string, newEndAt: string) {
   const { supabase, userId } = await currentUserId();
   if (!userId) return;
 
-  await supabase
-    .from("events")
-    .update({ start_at: newStartAt, end_at: newEndAt })
-    .eq("id", eventId);
+  await rescheduleEventCore(supabase, userId, eventId, newStartAt, newEndAt);
 
   revalidatePath("/calendar");
+  revalidatePath("/tasks");
 }
 
-export async function deleteEvent(eventId: string) {
+export async function deleteEventCore(
+  supabase: SupabaseClient<Database>,
+  eventId: string,
+  deleteLinkedTask: boolean
+) {
+  if (deleteLinkedTask) {
+    const { data: event } = await supabase
+      .from("events")
+      .select("linked_task_id")
+      .eq("id", eventId)
+      .single();
+    if (event?.linked_task_id) {
+      await supabase.from("tasks").delete().eq("id", event.linked_task_id);
+    }
+  }
+
+  await supabase.from("events").delete().eq("id", eventId);
+}
+
+export async function deleteEvent(eventId: string, deleteLinkedTask = false) {
   const { supabase, userId } = await currentUserId();
   if (!userId) return;
 
-  await supabase.from("events").delete().eq("id", eventId);
+  await deleteEventCore(supabase, eventId, deleteLinkedTask);
+
   revalidatePath("/calendar");
+  revalidatePath("/tasks");
 }
