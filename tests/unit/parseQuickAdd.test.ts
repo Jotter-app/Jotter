@@ -8,7 +8,7 @@ const REF = new Date("2026-08-22T09:00:00");
 describe("parseQuickAdd", () => {
   it("returns the full input as the title with no due date when nothing parses", () => {
     const result = parseQuickAdd("buy groceries", REF);
-    expect(result).toEqual({ title: "buy groceries", dueAt: null });
+    expect(result).toEqual({ title: "buy groceries", dueAt: null, endAt: null });
   });
 
   it("never blocks on empty input", () => {
@@ -50,5 +50,19 @@ describe("parseQuickAdd", () => {
     const result = parseQuickAdd("tomorrow 5pm", REF);
     expect(result.title).toBe("tomorrow 5pm");
     expect(result.dueAt).not.toBeNull();
+  });
+
+  it("exposes endAt when chrono finds a two-sided time range", () => {
+    const result = parseQuickAdd("team sync tomorrow 2-3pm", REF);
+    expect(result.title).toBe("team sync");
+    expect(result.dueAt).not.toBeNull();
+    expect(result.endAt).not.toBeNull();
+    expect(result.dueAt!.getHours()).toBe(14);
+    expect(result.endAt!.getHours()).toBe(15);
+  });
+
+  it("leaves endAt null for a plain single due date/time", () => {
+    const result = parseQuickAdd("call mom tomorrow 5pm", REF);
+    expect(result.endAt).toBeNull();
   });
 });
