@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { LogOut, Settings } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -27,9 +28,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="flex size-7 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-              M
+              J
             </div>
-            <span className="hidden font-semibold sm:inline">Mix-Match</span>
+            <span className="hidden font-semibold sm:inline">Jotter</span>
           </div>
           <TopNav />
         </div>
@@ -37,6 +38,11 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <NotificationSetup />
           <GlobalSearch />
           <ThemeToggle />
+          <Link href="/settings">
+            <Button variant="ghost" size="sm" aria-label="Settings">
+              <Settings className="size-4" />
+            </Button>
+          </Link>
           <form action={signOut}>
             <Button type="submit" variant="ghost" size="sm" aria-label="Sign out">
               <LogOut className="size-4" />

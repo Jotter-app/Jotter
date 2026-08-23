@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Mix-Match",
+  title: "Jotter",
   description: "Calendar, notes, and reminders in one place.",
 };
 

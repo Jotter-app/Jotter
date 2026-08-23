@@ -131,4 +131,36 @@ describe("RLS cross-user isolation", () => {
     const { error } = await userB.client.from("folders").insert({ name: "forged", user_id: userA.userId });
     expect(error).not.toBeNull();
   });
+
+  // profiles is keyed by user_id (no separate id column), auto-created by
+  // the on-signup trigger -- doesn't fit the generic `cases` array above,
+  // so it gets its own bespoke assertions.
+  it("user B cannot select user A's profile row", async () => {
+    const { data, error } = await userB.client.from("profiles").select().eq("user_id", userA.userId);
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
+  });
+
+  it("user A can select their own profile row", async () => {
+    const { data, error } = await userA.client.from("profiles").select().eq("user_id", userA.userId);
+    expect(error).toBeNull();
+    expect(data).toHaveLength(1);
+  });
+
+  it("user B's update against user A's profile row silently affects zero rows", async () => {
+    const { data, error } = await userB.client
+      .from("profiles")
+      .update({ default_event_creates_task: true })
+      .eq("user_id", userA.userId)
+      .select();
+    expect(error).toBeNull();
+    expect(data).toEqual([]);
+
+    const { data: stillA } = await userA.client
+      .from("profiles")
+      .select("default_event_creates_task")
+      .eq("user_id", userA.userId)
+      .single();
+    expect(stillA?.default_event_creates_task).toBe(false);
+  });
 });
