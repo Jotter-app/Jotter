@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,17 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b px-4 py-3">
-        <span className="font-semibold">Mix-Match</span>
+        <div className="flex items-center gap-6">
+          <span className="font-semibold">Mix-Match</span>
+          <nav className="flex gap-4 text-sm text-muted-foreground">
+            <Link href="/tasks" className="hover:text-foreground">
+              Tasks
+            </Link>
+            <Link href="/notes" className="hover:text-foreground">
+              Notes
+            </Link>
+          </nav>
+        </div>
         <form action={signOut}>
           <Button type="submit" variant="ghost" size="sm">
             Sign out
