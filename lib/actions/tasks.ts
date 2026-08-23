@@ -2,14 +2,64 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseQuickAdd } from "@/lib/dates/parseQuickAdd";
 import { extractAndStripTags } from "@/lib/markdown/extractTags";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
 import { currentUserId } from "@/lib/supabase/session";
+import type { Database } from "@/lib/supabase/database.types";
 
 export interface QuickAddFormState {
   error: string | null;
+}
+
+export interface InsertTaskParams {
+  title: string;
+  dueAt: Date | null;
+  tagNames: string[];
+}
+
+export interface InsertTaskResult {
+  ok: boolean;
+  taskId: string | null;
+  error: string | null;
+}
+
+// Shared by the quick-add form action below and (eventually) the Jotter
+// command dispatcher and event->task linking -- the actual insert + tag
+// assignment + reminder sync belongs in exactly one place.
+export async function insertTaskCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  { title, dueAt, tagNames }: InsertTaskParams
+): Promise<InsertTaskResult> {
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .insert({
+      user_id: userId,
+      title,
+      due_at: dueAt ? dueAt.toISOString() : null,
+    })
+    .select("id")
+    .single();
+  if (error || !task) {
+    return { ok: false, taskId: null, error: error?.message ?? "Could not create task." };
+  }
+
+  for (const name of tagNames) {
+    const tagId = await findOrCreateTag(supabase, userId, name);
+    if (!tagId) continue;
+    await supabase
+      .from("taggables")
+      .insert({ tag_id: tagId, user_id: userId, taggable_id: task.id, taggable_type: "task" });
+  }
+
+  if (dueAt) {
+    await syncTaskReminder(supabase, userId, task.id, dueAt.toISOString());
+  }
+
+  return { ok: true, taskId: task.id, error: null };
 }
 
 export async function createTaskFromQuickAdd(
@@ -38,29 +88,9 @@ export async function createTaskFromQuickAdd(
     return { error: "Not signed in." };
   }
 
-  const { data: task, error } = await supabase
-    .from("tasks")
-    .insert({
-      user_id: userId,
-      title,
-      due_at: dueAt ? dueAt.toISOString() : null,
-    })
-    .select("id")
-    .single();
-  if (error || !task) {
-    return { error: error?.message ?? "Could not create task." };
-  }
-
-  for (const name of tagNames) {
-    const tagId = await findOrCreateTag(supabase, userId, name);
-    if (!tagId) continue;
-    await supabase
-      .from("taggables")
-      .insert({ tag_id: tagId, user_id: userId, taggable_id: task.id, taggable_type: "task" });
-  }
-
-  if (dueAt) {
-    await syncTaskReminder(supabase, userId, task.id, dueAt.toISOString());
+  const result = await insertTaskCore(supabase, userId, { title, dueAt, tagNames });
+  if (!result.ok) {
+    return { error: result.error };
   }
 
   revalidatePath("/tasks");

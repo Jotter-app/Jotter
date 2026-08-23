@@ -2,23 +2,51 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
 import { extractTags } from "@/lib/markdown/extractTags";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
+import type { Database } from "@/lib/supabase/database.types";
+
+export interface InsertNoteParams {
+  folderId: string | null;
+  title: string;
+  bodyMarkdown: string;
+}
+
+export interface InsertNoteResult {
+  ok: boolean;
+  noteId: string | null;
+  error: string | null;
+}
+
+// Shared by createNote below and (eventually) the Jotter command
+// dispatcher -- the actual note insert belongs in exactly one place.
+export async function insertNoteCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  { folderId, title, bodyMarkdown }: InsertNoteParams
+): Promise<InsertNoteResult> {
+  const { data, error } = await supabase
+    .from("notes")
+    .insert({ user_id: userId, folder_id: folderId, title, body_markdown: bodyMarkdown })
+    .select("id")
+    .single();
+  if (error || !data) {
+    return { ok: false, noteId: null, error: error?.message ?? "Could not create note." };
+  }
+  return { ok: true, noteId: data.id, error: null };
+}
 
 export async function createNote(folderId: string | null) {
   const { supabase, userId } = await currentUserId();
   if (!userId) return;
 
-  const { data, error } = await supabase
-    .from("notes")
-    .insert({ user_id: userId, folder_id: folderId, title: "Untitled", body_markdown: "" })
-    .select("id")
-    .single();
-  if (error || !data) return;
+  const result = await insertNoteCore(supabase, userId, { folderId, title: "Untitled", bodyMarkdown: "" });
+  if (!result.ok || !result.noteId) return;
 
   revalidatePath("/notes");
-  redirect(`/notes/${data.id}`);
+  redirect(`/notes/${result.noteId}`);
 }
 
 export async function deleteNote(noteId: string) {

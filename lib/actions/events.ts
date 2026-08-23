@@ -2,7 +2,9 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
+import type { Database } from "@/lib/supabase/database.types";
 
 const eventSchema = z.object({
   title: z.string().trim().min(1),
@@ -13,6 +15,44 @@ const eventSchema = z.object({
 
 export interface EventFormState {
   error: string | null;
+}
+
+export interface InsertEventParams {
+  title: string;
+  startAt: string;
+  endAt: string;
+  calendarColor?: string;
+}
+
+export interface InsertEventResult {
+  ok: boolean;
+  eventId: string | null;
+  error: string | null;
+}
+
+// Shared by the form action below and (eventually) the Jotter command
+// dispatcher -- the actual event insert belongs in exactly one place.
+export async function insertEventCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  { title, startAt, endAt, calendarColor = "#3b82f6" }: InsertEventParams
+): Promise<InsertEventResult> {
+  const { data: event, error } = await supabase
+    .from("events")
+    .insert({
+      user_id: userId,
+      title,
+      start_at: startAt,
+      end_at: endAt,
+      calendar_color: calendarColor,
+    })
+    .select("id")
+    .single();
+  if (error || !event) {
+    return { ok: false, eventId: null, error: error?.message ?? "Could not create event." };
+  }
+
+  return { ok: true, eventId: event.id, error: null };
 }
 
 export async function createEvent(
@@ -38,14 +78,13 @@ export async function createEvent(
   const { supabase, userId } = await currentUserId();
   if (!userId) return { error: "Not signed in." };
 
-  const { error } = await supabase.from("events").insert({
-    user_id: userId,
+  const result = await insertEventCore(supabase, userId, {
     title: parsed.data.title,
-    start_at: startAt.toISOString(),
-    end_at: endAt.toISOString(),
-    calendar_color: parsed.data.calendarColor,
+    startAt: startAt.toISOString(),
+    endAt: endAt.toISOString(),
+    calendarColor: parsed.data.calendarColor,
   });
-  if (error) return { error: error.message };
+  if (!result.ok) return { error: result.error };
 
   revalidatePath("/calendar");
   return { error: null };
