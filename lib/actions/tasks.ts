@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { parseQuickAdd } from "@/lib/dates/parseQuickAdd";
 import { extractAndStripTags } from "@/lib/markdown/extractTags";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
+import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
 import { currentUserId } from "@/lib/supabase/session";
 
 export interface QuickAddFormState {
@@ -58,11 +59,15 @@ export async function createTaskFromQuickAdd(
       .insert({ tag_id: tagId, user_id: userId, taggable_id: task.id, taggable_type: "task" });
   }
 
+  if (dueAt) {
+    await syncTaskReminder(supabase, userId, task.id, dueAt.toISOString());
+  }
+
   revalidatePath("/tasks");
   return { error: null };
 }
 
-export async function toggleTaskComplete(taskId: string, completed: boolean) {
+export async function toggleTaskComplete(taskId: string, completed: boolean, dueAt: string | null) {
   const { supabase, userId } = await currentUserId();
   if (!userId) return;
 
@@ -70,6 +75,11 @@ export async function toggleTaskComplete(taskId: string, completed: boolean) {
     .from("tasks")
     .update({ completed_at: completed ? new Date().toISOString() : null })
     .eq("id", taskId);
+
+  // Completing a task cancels its pending reminder (no point being told
+  // about something already done); un-completing restores it if the task
+  // still has a due date.
+  await syncTaskReminder(supabase, userId, taskId, completed ? null : dueAt);
 
   revalidatePath("/tasks");
 }
@@ -101,14 +111,18 @@ export async function updateTask(formData: FormData) {
   const { supabase, userId } = await currentUserId();
   if (!userId) return;
 
+  const dueAt = parsed.data.dueAt ? new Date(parsed.data.dueAt).toISOString() : null;
+
   await supabase
     .from("tasks")
     .update({
       title: parsed.data.title,
       priority: parsed.data.priority,
-      due_at: parsed.data.dueAt ? new Date(parsed.data.dueAt).toISOString() : null,
+      due_at: dueAt,
     })
     .eq("id", parsed.data.id);
+
+  await syncTaskReminder(supabase, userId, parsed.data.id, dueAt);
 
   revalidatePath("/tasks");
 }

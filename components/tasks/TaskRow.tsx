@@ -43,7 +43,7 @@ export function TaskRow({
   const completed = task.completed_at !== null;
 
   function handleToggle() {
-    startTransition(() => toggleTaskComplete(task.id, !completed));
+    startTransition(() => toggleTaskComplete(task.id, !completed, task.due_at));
   }
 
   function handleDelete() {

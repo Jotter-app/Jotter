@@ -6,3 +6,6 @@
 .env.keys
 .env.local
 .env.*.local
+
+# Edge Function secrets for local dev (VAPID/Resend keys)
+functions/.env
