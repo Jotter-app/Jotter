@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { currentUserId } from "@/lib/supabase/session";
+import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 
 export type TaggableType = "task" | "note";
 
@@ -14,28 +15,11 @@ export async function createAndAssignTag(
   taggableId: string,
   taggableType: TaggableType
 ) {
-  const trimmed = name.trim();
-  if (!trimmed) return;
-
   const { supabase, userId } = await currentUserId();
   if (!userId) return;
 
-  const { data: existing } = await supabase
-    .from("tags")
-    .select("id")
-    .eq("name", trimmed)
-    .maybeSingle();
-
-  let tagId = existing?.id;
-  if (!tagId) {
-    const { data: created, error } = await supabase
-      .from("tags")
-      .insert({ user_id: userId, name: trimmed })
-      .select("id")
-      .single();
-    if (error || !created) return;
-    tagId = created.id;
-  }
+  const tagId = await findOrCreateTag(supabase, userId, name);
+  if (!tagId) return;
 
   await supabase
     .from("taggables")

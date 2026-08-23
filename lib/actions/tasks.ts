@@ -3,6 +3,8 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { parseQuickAdd } from "@/lib/dates/parseQuickAdd";
+import { extractAndStripTags } from "@/lib/markdown/extractTags";
+import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 import { currentUserId } from "@/lib/supabase/session";
 
 export interface QuickAddFormState {
@@ -18,7 +20,14 @@ export async function createTaskFromQuickAdd(
     return { error: "Enter a task." };
   }
 
-  const { title, dueAt } = parseQuickAdd(parsed.data);
+  const { title: titleWithTags, dueAt } = parseQuickAdd(parsed.data);
+  if (!titleWithTags) {
+    return { error: "Enter a task." };
+  }
+
+  // "#TagName1, #TagName2" anywhere in the text assigns those tags at
+  // creation time and is stripped from the saved title.
+  const { title, tags: tagNames } = extractAndStripTags(titleWithTags);
   if (!title) {
     return { error: "Enter a task." };
   }
@@ -28,13 +37,25 @@ export async function createTaskFromQuickAdd(
     return { error: "Not signed in." };
   }
 
-  const { error } = await supabase.from("tasks").insert({
-    user_id: userId,
-    title,
-    due_at: dueAt ? dueAt.toISOString() : null,
-  });
-  if (error) {
-    return { error: error.message };
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .insert({
+      user_id: userId,
+      title,
+      due_at: dueAt ? dueAt.toISOString() : null,
+    })
+    .select("id")
+    .single();
+  if (error || !task) {
+    return { error: error?.message ?? "Could not create task." };
+  }
+
+  for (const name of tagNames) {
+    const tagId = await findOrCreateTag(supabase, userId, name);
+    if (!tagId) continue;
+    await supabase
+      .from("taggables")
+      .insert({ tag_id: tagId, user_id: userId, taggable_id: task.id, taggable_type: "task" });
   }
 
   revalidatePath("/tasks");

@@ -14,3 +14,24 @@ export function extractTags(markdown: string): string[] {
   }
   return [...seen];
 }
+
+/**
+ * For short-form text (quick-add task titles, not note bodies): extracts
+ * tags the same way as extractTags, but also strips the #tag tokens out of
+ * the text, cleaning up the comma/whitespace debris they leave behind --
+ * "buy milk #errands, #shopping tomorrow" -> { title: "buy milk tomorrow",
+ * tags: ["errands", "shopping"] }. Falls back to the original text if
+ * stripping would leave nothing (a title made up entirely of tags), same
+ * as parseQuickAdd's "never block submission" rule.
+ */
+export function extractAndStripTags(text: string): { title: string; tags: string[] } {
+  const tags = extractTags(text);
+  const stripped = text
+    .replace(HASHTAG_PATTERN, "")
+    .replace(/\s*,\s*,/g, ",")
+    .replace(/(^\s*,\s*)|(\s*,\s*$)/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return { title: stripped.length > 0 ? stripped : text.trim(), tags };
+}

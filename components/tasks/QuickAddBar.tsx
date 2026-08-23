@@ -23,7 +23,7 @@ export function QuickAddBar() {
       <div className="flex gap-2">
         <Input
           name="text"
-          placeholder='Add a task... try "call mom tomorrow 5pm"'
+          placeholder='Add a task... try "call mom tomorrow 5pm #family"'
           required
           autoComplete="off"
         />

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { currentUserId } from "@/lib/supabase/session";
 import { extractTags } from "@/lib/markdown/extractTags";
+import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 
 export async function createNote(folderId: string | null) {
   const { supabase, userId } = await currentUserId();
@@ -84,10 +85,7 @@ export async function saveNote(
   // from the text) should not silently disappear.
   const tagNames = extractTags(bodyMarkdown);
   for (const name of tagNames) {
-    const { data: existing } = await supabase.from("tags").select("id").eq("name", name).maybeSingle();
-    const tagId =
-      existing?.id ??
-      (await supabase.from("tags").insert({ user_id: userId, name }).select("id").single()).data?.id;
+    const tagId = await findOrCreateTag(supabase, userId, name);
     if (!tagId) continue;
 
     await supabase
