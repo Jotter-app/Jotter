@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { startOfDay, endOfDay } from "date-fns";
 import { createClient } from "@/lib/supabase/server";
 import { QuickAddBar } from "@/components/tasks/QuickAddBar";
 import { TaskRow } from "@/components/tasks/TaskRow";
+import { TagFilterRow } from "@/components/tags/TagFilterRow";
 
 export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   const { tag: tagFilter } = await searchParams;
@@ -58,29 +58,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       <h1 className="text-2xl font-semibold">Tasks</h1>
       <QuickAddBar />
 
-      {allTags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <Link
-            href="/tasks"
-            className={`rounded-full px-2 py-0.5 ${!tagFilter ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
-          >
-            All
-          </Link>
-          {allTags.map((tag) => (
-            <Link
-              key={tag.id}
-              href={`/tasks?tag=${tag.id}`}
-              className="rounded-full px-2 py-0.5 text-white"
-              style={{
-                backgroundColor: tag.color,
-                opacity: tagFilter && tagFilter !== tag.id ? 0.4 : 1,
-              }}
-            >
-              {tag.name}
-            </Link>
-          ))}
-        </div>
-      )}
+      <TagFilterRow allTags={allTags} activeTagId={typeof tagFilter === "string" ? tagFilter : undefined} />
 
       {sections.map(
         (section) =>

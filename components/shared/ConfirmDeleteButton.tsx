@@ -23,19 +23,28 @@ export function ConfirmDeleteButton({
   description,
   onConfirm,
   disabled,
+  trigger,
 }: {
   title: string;
   description?: string;
   onConfirm: () => void;
   disabled?: boolean;
+  /** Custom trigger element (e.g. a compact "x" for an inline chip) in
+   * place of the default "Delete" button. Rendered as-is via Base UI's
+   * render prop -- its own content/styling is preserved. */
+  trigger?: React.ReactElement;
 }) {
   const [open, setOpen] = useState(false);
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger render={<Button size="sm" variant="ghost" disabled={disabled} />}>
-        Delete
-      </AlertDialogTrigger>
+      {trigger ? (
+        <AlertDialogTrigger render={trigger} />
+      ) : (
+        <AlertDialogTrigger render={<Button size="sm" variant="ghost" disabled={disabled} />}>
+          Delete
+        </AlertDialogTrigger>
+      )}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>

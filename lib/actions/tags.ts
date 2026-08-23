@@ -60,3 +60,19 @@ export async function unassignTag(
 
   revalidatePath(pathFor(taggableType));
 }
+
+/**
+ * Deletes the tag itself (not just one assignment) -- removes it from
+ * every task and note that has it, via the taggables FK's ON DELETE
+ * CASCADE. This is what "delete from the filter list" means, as opposed
+ * to unassignTag's "remove this one tag from this one item."
+ */
+export async function deleteTagGlobally(tagId: string) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return;
+
+  await supabase.from("tags").delete().eq("id", tagId);
+
+  revalidatePath("/tasks");
+  revalidatePath("/notes");
+}
