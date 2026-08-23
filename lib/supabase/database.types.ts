@@ -40,6 +40,7 @@ export type Database = {
           created_at: string
           end_at: string
           id: string
+          linked_task_id: string | null
           recurrence_rule: string | null
           start_at: string
           title: string
@@ -50,6 +51,7 @@ export type Database = {
           created_at?: string
           end_at: string
           id?: string
+          linked_task_id?: string | null
           recurrence_rule?: string | null
           start_at: string
           title: string
@@ -60,12 +62,21 @@ export type Database = {
           created_at?: string
           end_at?: string
           id?: string
+          linked_task_id?: string | null
           recurrence_rule?: string | null
           start_at?: string
           title?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "events_linked_task_id_fkey"
+            columns: ["linked_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       folders: {
         Row: {
@@ -175,6 +186,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          default_event_creates_task: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_event_creates_task?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_event_creates_task?: boolean
+          user_id?: string
+        }
+        Relationships: []
       }
       push_subscriptions: {
         Row: {
