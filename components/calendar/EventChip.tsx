@@ -27,6 +27,8 @@ export function EventChip({ event }: { event: Event }) {
         render={
           <button
             ref={setNodeRef}
+            data-testid="event-chip"
+            data-event-id={event.id}
             style={{ ...style, backgroundColor: event.calendar_color }}
             className={`block w-full truncate rounded px-1.5 py-0.5 text-left text-xs text-white ${isDragging ? "opacity-50" : ""}`}
             {...listeners}

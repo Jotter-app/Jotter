@@ -31,6 +31,8 @@ export function DayCell({
   return (
     <div
       ref={setNodeRef}
+      data-testid="day-cell"
+      data-date={dayKey(date)}
       className={`group/cell flex min-h-24 flex-col gap-1 p-1.5 transition-colors ${bg} ${dimmed ? "text-muted-foreground" : ""}`}
     >
       <div className="flex items-center justify-between">
