@@ -30,6 +30,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             <Link href="/notes" className="hover:text-foreground">
               Notes
             </Link>
+            <Link href="/calendar" className="hover:text-foreground">
+              Calendar
+            </Link>
           </nav>
         </div>
         <div className="flex items-center gap-3">

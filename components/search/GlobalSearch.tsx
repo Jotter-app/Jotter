@@ -47,11 +47,18 @@ export function GlobalSearch() {
   function goTo(result: SearchResult) {
     setOpen(false);
     setQuery("");
-    router.push(result.type === "note" ? `/notes/${result.id}` : `/tasks`);
+    if (result.type === "note") {
+      router.push(`/notes/${result.id}`);
+    } else if (result.type === "event") {
+      router.push(`/calendar?date=${result.dateKey}`);
+    } else {
+      router.push("/tasks");
+    }
   }
 
   const notes = activeResults.filter((r) => r.type === "note");
   const tasks = activeResults.filter((r) => r.type === "task");
+  const events = activeResults.filter((r) => r.type === "event");
 
   return (
     <>
@@ -81,6 +88,15 @@ export function GlobalSearch() {
           {tasks.length > 0 && (
             <CommandGroup heading="Tasks">
               {tasks.map((r) => (
+                <CommandItem key={r.id} value={r.id} onSelect={() => goTo(r)}>
+                  {r.title}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
+          {events.length > 0 && (
+            <CommandGroup heading="Calendar">
+              {events.map((r) => (
                 <CommandItem key={r.id} value={r.id} onSelect={() => goTo(r)}>
                   {r.title}
                 </CommandItem>
