@@ -79,7 +79,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
               <ul className="flex flex-col gap-2">
                 {section.tasks.map((task) => (
                   <TaskRow
-                    key={task.id}
+                    key={`${task.id}-${task.updated_at}`}
                     task={task}
                     allTags={allTags}
                     assignedTags={tagsByTaskId.get(task.id) ?? []}
@@ -108,7 +108,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
           <ul className="mt-3 flex flex-col gap-2">
             {completed.map((task) => (
               <TaskRow
-                key={task.id}
+                key={`${task.id}-${task.updated_at}`}
                 task={task}
                 allTags={allTags}
                 assignedTags={tagsByTaskId.get(task.id) ?? []}

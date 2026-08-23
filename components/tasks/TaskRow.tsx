@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export function TaskRow({
   allTags: Tag[];
   assignedTags: Tag[];
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
@@ -39,6 +41,7 @@ export function TaskRow({
   const [dueAt, setDueAt] = useState(
     task.due_at ? format(new Date(task.due_at), DATETIME_LOCAL_FORMAT) : ""
   );
+  const [conflict, setConflict] = useState(false);
 
   const completed = task.completed_at !== null;
 
@@ -50,15 +53,23 @@ export function TaskRow({
     startTransition(() => deleteTask(task.id));
   }
 
-  function handleSave() {
+  function handleSave(force = false) {
     const formData = new FormData();
     formData.set("id", task.id);
     formData.set("title", title);
     formData.set("priority", String(priority));
+    formData.set("expectedUpdatedAt", task.updated_at);
     if (dueAt) formData.set("dueAt", dueAt);
+    if (force) formData.set("force", "true");
     startTransition(async () => {
-      await updateTask(formData);
+      const result = await updateTask(formData);
+      if (result.conflict) {
+        setConflict(true);
+        return;
+      }
+      setConflict(false);
       setEditing(false);
+      router.refresh();
     });
   }
 
@@ -66,12 +77,26 @@ export function TaskRow({
     setTitle(task.title);
     setPriority(task.priority);
     setDueAt(task.due_at ? format(new Date(task.due_at), DATETIME_LOCAL_FORMAT) : "");
+    setConflict(false);
     setEditing(false);
   }
 
   if (editing) {
     return (
       <li className="flex flex-col gap-2 rounded-lg border bg-background p-3 shadow-sm">
+        {conflict && (
+          <div className="flex flex-col gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-2 text-xs sm:flex-row sm:items-center sm:justify-between">
+            <span>This task was edited elsewhere since you opened it.</span>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => router.refresh()}>
+                Reload latest
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => handleSave(true)}>
+                Overwrite anyway
+              </Button>
+            </div>
+          </div>
+        )}
         <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" />
         <div className="flex flex-wrap gap-2">
           <Select value={String(priority)} onValueChange={(v) => setPriority(Number(v))}>
@@ -97,7 +122,7 @@ export function TaskRow({
           />
         </div>
         <div className="flex gap-2">
-          <Button size="sm" onClick={handleSave} disabled={isPending || title.trim().length === 0}>
+          <Button size="sm" onClick={() => handleSave()} disabled={isPending || title.trim().length === 0}>
             Save
           </Button>
           <Button size="sm" variant="ghost" onClick={handleCancel} disabled={isPending}>

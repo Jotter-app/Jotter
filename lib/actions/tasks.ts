@@ -97,32 +97,67 @@ const updateTaskSchema = z.object({
   title: z.string().trim().min(1),
   priority: z.coerce.number().int().min(0).max(3),
   dueAt: z.string().optional(),
+  expectedUpdatedAt: z.string(),
+  force: z.coerce.boolean().optional(),
 });
 
-export async function updateTask(formData: FormData) {
+export interface UpdateTaskResult {
+  ok: boolean;
+  conflict: boolean;
+  updatedAt: string | null;
+}
+
+/**
+ * Same optimistic-concurrency check as notes' saveNote(): reject the write
+ * if the row has moved on since the client loaded it (edited in another
+ * tab), rather than silently overwriting a concurrent edit.
+ */
+export async function updateTask(formData: FormData): Promise<UpdateTaskResult> {
   const parsed = updateTaskSchema.safeParse({
     id: formData.get("id"),
     title: formData.get("title"),
     priority: formData.get("priority"),
     dueAt: formData.get("dueAt") || undefined,
+    expectedUpdatedAt: formData.get("expectedUpdatedAt"),
+    force: formData.get("force") || undefined,
   });
-  if (!parsed.success) return;
+  if (!parsed.success) {
+    return { ok: false, conflict: false, updatedAt: null };
+  }
 
   const { supabase, userId } = await currentUserId();
-  if (!userId) return;
+  if (!userId) {
+    return { ok: false, conflict: false, updatedAt: null };
+  }
+
+  const { data: current } = await supabase
+    .from("tasks")
+    .select("updated_at")
+    .eq("id", parsed.data.id)
+    .single();
+
+  if (!parsed.data.force && current && current.updated_at !== parsed.data.expectedUpdatedAt) {
+    return { ok: false, conflict: true, updatedAt: current.updated_at };
+  }
 
   const dueAt = parsed.data.dueAt ? new Date(parsed.data.dueAt).toISOString() : null;
 
-  await supabase
+  const { data: updated, error } = await supabase
     .from("tasks")
     .update({
       title: parsed.data.title,
       priority: parsed.data.priority,
       due_at: dueAt,
     })
-    .eq("id", parsed.data.id);
+    .eq("id", parsed.data.id)
+    .select("updated_at")
+    .single();
+  if (error || !updated) {
+    return { ok: false, conflict: false, updatedAt: null };
+  }
 
   await syncTaskReminder(supabase, userId, parsed.data.id, dueAt);
 
   revalidatePath("/tasks");
+  return { ok: true, conflict: false, updatedAt: updated.updated_at };
 }

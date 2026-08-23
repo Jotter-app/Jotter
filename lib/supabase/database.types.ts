@@ -360,6 +360,7 @@ export type Database = {
           priority: number
           recurrence_rule: string | null
           title: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -372,6 +373,7 @@ export type Database = {
           priority?: number
           recurrence_rule?: string | null
           title: string
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -384,6 +386,7 @@ export type Database = {
           priority?: number
           recurrence_rule?: string | null
           title?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -537,3 +540,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

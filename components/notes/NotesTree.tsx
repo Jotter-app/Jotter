@@ -16,8 +16,15 @@ type NoteSummary = { id: string; title: string; folder_id: string | null };
 export function NotesTree({ roots, rootNotes }: { roots: FolderNode[]; rootNotes: NoteSummary[] }) {
   const allFolderOptions = flattenForPicker(roots);
 
+  const isEmpty = roots.length === 0 && rootNotes.length === 0;
+
   return (
     <div className="flex flex-col gap-2">
+      {isEmpty && (
+        <p className="px-1 pb-1 text-sm text-muted-foreground">
+          No notes yet -- create a folder or note below.
+        </p>
+      )}
       <div className="flex flex-col gap-1">
         {roots.map((node) => (
           <FolderRow key={node.id} node={node} depth={0} allFolders={roots} />
