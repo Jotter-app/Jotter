@@ -59,6 +59,7 @@ All tables scoped to `user_id` via RLS.
 | `note_links` | `(source_note_id, target_note_id)` | Populated by parsing `[[wikilinks]]` on save (Phase 2) — powers backlinks |
 | `task_note_links` | `(task_id, note_id)` | Attach a note to a task (Phase 2) |
 | `reminders` | `id, task_id (nullable), event_id (nullable), fire_at, channel (push/email), sent_at (nullable)` | Split from tasks/events so the cron query stays simple and a task/event can later have multiple reminder times |
+| `recurrence_exceptions` | `id, parent_task_id (nullable), parent_event_id (nullable), occurrence_date, status (skipped/modified), override_fields (jsonb, nullable)` | One row per edited/skipped occurrence of a recurring task/event (Phase 2) — "every Monday, except skip the 15th" needs this; a bare `recurrence_rule` column only gets you rule expansion for calendar rendering, not per-occurrence edits |
 
 ## Feature Scope
 
@@ -73,7 +74,7 @@ All tables scoped to `user_id` via RLS.
 ### Phase 2
 - `[[wikilinks]]` + backlinks panel between notes
 - Attach note to task (`task_note_links`)
-- Recurring tasks/events (`recurrence_rule` logic)
+- Recurring tasks/events: RRULE parsing/expansion for calendar rendering, *and* the `recurrence_exceptions` model for editing/deleting single occurrences — scope both together, not just the rule-expansion half; the exceptions model is the bigger lift and is what external-calendar imports (Phase 2 Google/Outlook sync) will also need for recurring events with their own exception dates
 - Subtasks/checklists within a task
 - Drag-and-drop time-blocking (drag an unscheduled task onto the calendar)
 - Calendar sync with Google/Outlook
@@ -88,7 +89,7 @@ All tables scoped to `user_id` via RLS.
 
 ## Error Handling & Edge Cases
 
-- **Reminder delivery failures:** if push fails (e.g. expired subscription), fall back to email and mark `sent_at` regardless, so the cron job doesn't retry into a dead subscription indefinitely. Log failures for later cleanup of stale push subscriptions.
+- **Reminder delivery failures:** "attempt" is per-reminder, not per-subscription. A push-channel reminder fans out to every push subscription registered for that user; it counts as delivered if *any* subscription accepts it. Email fallback fires only when *all* of a user's subscriptions fail (or none are registered) — a user with two devices shouldn't get a duplicate email just because one browser's subscription expired. Mark `sent_at` once per reminder, after the fan-out (and fallback, if triggered) completes, regardless of outcome, so the cron job doesn't retry into dead subscriptions indefinitely. Log individual subscription failures for later cleanup of stale ones.
 - **Quick-add parsing ambiguity:** if `chrono-node` finds no date/time, save as a task with no due date rather than blocking submission.
 - **Folder deletion:** deleting a folder with nested contents prompts for confirmation and either cascades or offers "move contents to parent" — never silently orphans notes.
 - **Concurrent edits:** last-write-wins with an `updated_at` optimistic check; warn before overwriting a stale write rather than silently discarding changes. No real-time collab in MVP.
@@ -96,8 +97,8 @@ All tables scoped to `user_id` via RLS.
 
 ## Testing Approach
 
-- **Unit tests:** date-parsing edge cases (chrono-node wrapper), recurrence rule expansion, tag/link extraction from markdown
-- **Integration tests:** RLS policies (cross-user isolation), reminder cron job (correct due-reminder selection, correct `sent_at` marking)
+- **Unit tests:** date-parsing edge cases (chrono-node wrapper), recurrence rule expansion, recurrence exceptions (skip/modify a single occurrence), tag/link extraction from markdown
+- **Integration tests:** RLS policies (cross-user isolation), reminder cron job (correct due-reminder selection, correct multi-subscription fan-out/fallback behavior, correct `sent_at` marking)
 - **E2E tests (Playwright):** sign up → create a nested note → quick-add a natural-language task → drag an event on the calendar → receive a reminder
 - Priority: RLS/integration tests rank above UI polish tests — a data-leak bug is far more damaging than a UI glitch
 
