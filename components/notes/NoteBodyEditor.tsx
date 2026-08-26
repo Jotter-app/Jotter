@@ -1,7 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { getCaretCoordinates } from "@/lib/dom/getCaretCoordinates";
+import { useEffect, useRef, useState } from "react";
+import { EditorState, Prec } from "@codemirror/state";
+import { EditorView, keymap, placeholder as placeholderExtension } from "@codemirror/view";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { markdown } from "@codemirror/lang-markdown";
+import { GFM } from "@lezer/markdown";
 
 interface SlashCommand {
   keyword: string;
@@ -34,14 +38,38 @@ interface MenuState {
   command: SlashCommand;
 }
 
+// Matches this app's CSS-variable theme (see app/globals.css) rather than a
+// packaged CM6 theme, so light/dark just falls out of the same .dark class
+// toggle next-themes already applies -- no JS-side theme switching needed.
+// Font/size/background/border intentionally inherit from the wrapper div's
+// own Tailwind classes (passed in via `className`) instead of being
+// hardcoded here, so this component's visual chrome stays driven by the
+// caller exactly like the old <textarea> was.
+const editorTheme = EditorView.theme({
+  "&": {
+    height: "100%",
+    fontFamily: "inherit",
+    fontSize: "inherit",
+    color: "inherit",
+    backgroundColor: "transparent",
+  },
+  "&.cm-focused": { outline: "none" },
+  ".cm-scroller": { fontFamily: "inherit", overflow: "auto" },
+  ".cm-content": { padding: 0, caretColor: "var(--foreground)" },
+  ".cm-line": { padding: 0 },
+  ".cm-placeholder": { color: "var(--muted-foreground)" },
+});
+
 /**
- * Wraps the note body <textarea> with a Notion-style "/" command menu, so
- * typing /task create's syntax doesn't have to be memorized. Only ever
- * triggers at the start of a line (a trailing "/" mid-sentence is just
- * punctuation), and closes as soon as what's typed after it stops being a
- * prefix of a known command -- at which point the user is just typing
- * normally, whether that's the command spelled out by hand or unrelated
- * text.
+ * Hand-rolled React<->CodeMirror 6 wrapper. Not using a wrapper library
+ * (e.g. @uiw/react-codemirror) since the live-preview decorations, heading
+ * folding, and wikilink/embed widgets this editor needs (see
+ * docs/superpowers/specs/2026-08-26-note-editor-live-preview-design.md) are
+ * all custom CM6 extensions a wrapper would just sit awkwardly on top of --
+ * matches this repo's existing preference for hand-rolled focused code
+ * (e.g. the caret-coordinates mirror-div this replaces) over pulling in an
+ * abstraction layer for a problem that's mostly "write CM6 extensions"
+ * anyway.
  */
 export function NoteBodyEditor({
   value,
@@ -54,18 +82,25 @@ export function NoteBodyEditor({
   placeholder?: string;
   className?: string;
 }) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const viewRef = useRef<EditorView | null>(null);
+  const onChangeRef = useRef(onChange);
   const [menu, setMenu] = useState<MenuState | null>(null);
+  const menuRef = useRef<MenuState | null>(null);
 
-  function evaluateTrigger(text: string, cursor: number) {
-    const textarea = textareaRef.current;
-    if (!textarea) {
-      setMenu(null);
-      return;
-    }
+  // Kept fresh via an effect rather than assigned directly during render --
+  // these refs are read from inside CM6 extension closures set up once at
+  // mount (see below), which would otherwise only ever see the initial
+  // `onChange`/`menu` values.
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    menuRef.current = menu;
+  });
 
-    const lineStart = text.lastIndexOf("\n", cursor - 1) + 1;
-    const linePrefix = text.slice(lineStart, cursor);
+  function evaluateSlashTrigger(view: EditorView) {
+    const cursor = view.state.selection.main.head;
+    const line = view.state.doc.lineAt(cursor);
+    const linePrefix = line.text.slice(0, cursor - line.from);
     const match = linePrefix.match(SLASH_TRIGGER);
     const partial = match?.[1].toLowerCase();
     const command = partial !== undefined ? SLASH_COMMANDS.find((c) => c.keyword.startsWith(partial)) : undefined;
@@ -75,60 +110,118 @@ export function NoteBodyEditor({
       return;
     }
 
-    const coords = getCaretCoordinates(textarea, cursor);
+    const coords = view.coordsAtPos(cursor);
+    const wrapperRect = containerRef.current?.getBoundingClientRect();
+    if (!coords || !wrapperRect) {
+      setMenu(null);
+      return;
+    }
+
     setMenu({
-      top: coords.top + coords.height - textarea.scrollTop,
-      left: coords.left - textarea.scrollLeft,
-      lineStart,
+      top: coords.bottom - wrapperRect.top,
+      left: coords.left - wrapperRect.left,
+      lineStart: line.from,
       command,
     });
   }
 
-  function selectCommand(command: SlashCommand, lineStart: number) {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const cursor = textarea.selectionStart;
-    const newValue = value.slice(0, lineStart) + command.template + value.slice(cursor);
-    const newCursor = lineStart + command.template.length;
-
-    onChange(newValue);
-    setMenu(null);
-
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(newCursor, newCursor);
+  function selectCommand(view: EditorView, state: MenuState) {
+    const cursor = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from: state.lineStart, to: cursor, insert: state.command.template },
+      selection: { anchor: state.lineStart + state.command.template.length },
     });
+    setMenu(null);
+    view.focus();
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    onChange(e.target.value);
-    evaluateTrigger(e.target.value, e.target.selectionStart);
-  }
+  useEffect(() => {
+    if (!containerRef.current) return;
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (!menu) return;
+    const state = EditorState.create({
+      doc: value,
+      extensions: [
+        history(),
+        // Highest precedence: without this, @codemirror/lang-markdown's own
+        // Enter binding (list continuation, etc.) runs first regardless of
+        // where this keymap sits in the extensions array -- CM6 resolves
+        // keymap precedence independently of array position unless told
+        // otherwise, so relying on ordering alone silently loses to it.
+        Prec.highest(
+          keymap.of([
+            {
+              key: "Enter",
+              run: (view) => {
+                if (!menuRef.current) return false;
+                selectCommand(view, menuRef.current);
+                return true;
+              },
+            },
+            {
+              key: "Tab",
+              run: (view) => {
+                if (!menuRef.current) return false;
+                selectCommand(view, menuRef.current);
+                return true;
+              },
+            },
+            {
+              key: "Escape",
+              run: () => {
+                if (!menuRef.current) return false;
+                setMenu(null);
+                return true;
+              },
+            },
+          ])
+        ),
+        keymap.of([...defaultKeymap, ...historyKeymap]),
+        markdown({ extensions: [GFM] }),
+        EditorView.lineWrapping,
+        editorTheme,
+        placeholderExtension(placeholder ?? ""),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            onChangeRef.current(update.state.doc.toString());
+          }
+          if (update.docChanged || update.selectionSet) {
+            evaluateSlashTrigger(update.view);
+          }
+        }),
+      ],
+    });
 
-    if (e.key === "Enter" || e.key === "Tab") {
-      e.preventDefault();
-      selectCommand(menu.command, menu.lineStart);
-    } else if (e.key === "Escape") {
-      e.preventDefault();
-      setMenu(null);
+    const view = new EditorView({ state, parent: containerRef.current });
+    viewRef.current = view;
+
+    return () => {
+      view.destroy();
+      viewRef.current = null;
+    };
+    // Mounted once; `value`/`placeholder` changes after mount are handled
+    // by the effects below rather than by re-running this one, which would
+    // otherwise tear down and rebuild the whole editor (losing undo
+    // history, selection, scroll position) on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Syncs an external value change (e.g. the conflict banner's "Reload
+  // latest") into the doc. Guarded by an equality check so this never
+  // fires from the editor's own onChange -> parent state -> prop-back-down
+  // round trip, which would otherwise clobber the user's cursor/selection
+  // on every keystroke.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (value !== current) {
+      view.dispatch({ changes: { from: 0, to: current.length, insert: value } });
     }
-  }
+  }, [value]);
 
   return (
     <div className="relative">
-      <textarea
-        ref={textareaRef}
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        onBlur={() => setMenu(null)}
-        placeholder={placeholder}
-        className={className}
-      />
+      <div ref={containerRef} className={className} />
       {menu && (
         <div
           className="absolute z-10 w-72 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
@@ -137,12 +230,13 @@ export function NoteBodyEditor({
           <button
             type="button"
             className="flex w-full flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
-            // Prevents the textarea from blurring on click, which would
-            // otherwise close the menu (via onBlur) before this handler
-            // ever runs.
+            // Prevents CM6's contenteditable from blurring on click, which
+            // would otherwise close the menu (via a blur-driven check)
+            // before this handler runs -- same trick the previous
+            // textarea-based menu used.
             onMouseDown={(e) => {
               e.preventDefault();
-              selectCommand(menu.command, menu.lineStart);
+              if (viewRef.current) selectCommand(viewRef.current, menu);
             }}
           >
             <span className="font-medium">{menu.command.label}</span>

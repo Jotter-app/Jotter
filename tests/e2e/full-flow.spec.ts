@@ -40,7 +40,12 @@ test("sign up, create a nested note, quick-add a task, drag a calendar event, an
     await page.waitForURL(/\/notes\/[^/]+$/);
 
     await page.getByPlaceholder("Untitled").fill("E2E Note");
-    await page.getByPlaceholder(/Write in markdown/).fill("Testing #e2enote from Playwright.");
+    // The note body is a CodeMirror 6 editor (contenteditable), not a plain
+    // <textarea> -- no `placeholder` attribute to select by, and typing via
+    // real keystrokes (not .fill()) matches how the editor actually expects
+    // input to arrive.
+    await page.locator(".cm-content").click();
+    await page.locator(".cm-content").pressSequentially("Testing #e2enote from Playwright.");
     await page.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   });

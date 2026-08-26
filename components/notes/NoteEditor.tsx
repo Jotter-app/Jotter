@@ -96,7 +96,7 @@ export function NoteEditor({
               setDirty(true);
             }}
             placeholder={'Write in markdown... use #tags anywhere, or /task create "title" tomorrow 5pm on its own line to add a linked task'}
-            className="min-h-96 w-full rounded-xl border bg-card p-3 font-mono text-sm shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="min-h-96 w-full rounded-xl border bg-card p-3 font-mono text-sm shadow-sm outline-none focus-within:ring-3 focus-within:ring-ring/50"
           />
         </div>
         <div className="flex flex-col gap-1.5">
