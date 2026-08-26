@@ -1,8 +1,28 @@
 import type { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { foldGutter, foldService, syntaxTree } from "@codemirror/language";
+import { foldGutter, foldNodeProp, foldService, syntaxTree } from "@codemirror/language";
+import type { MarkdownConfig } from "@lezer/markdown";
 
 const ATX_HEADING = /^ATXHeading([1-6])$/;
+
+// @codemirror/lang-markdown registers its own default foldNodeProp on every
+// generic block node (paragraphs, blockquotes, fenced code, etc.) -- fold
+// gutter markers were showing up on ordinary paragraph lines, not just
+// headings. Passed into markdown()'s own `extensions` array (not this
+// file's own exported extension list) since it has to be part of the
+// language's node-prop configuration, not a separate CM6 extension.
+//
+// Returning `undefined` from a foldNodeProp.add() matcher means "this
+// source has no opinion for this type" and falls through to whatever an
+// earlier-configured source already provided -- it does NOT unset it, so a
+// bare `() => undefined` here was a no-op against lang-markdown's own base
+// registration. Claiming the same node types with a matcher that returns a
+// real (always-null) fold function instead overrides it.
+export const suppressDefaultBlockFold: MarkdownConfig = {
+  props: [
+    foldNodeProp.add((type) => (type.is("Block") && !type.is("Document") ? () => null : undefined)),
+  ],
+};
 
 // Scans forward from `from` for the next heading node at or above `maxLevel`
 // -- that's the boundary a fold should stop at, so a heading only swallows

@@ -7,8 +7,9 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { GFM } from "@lezer/markdown";
 import { linkClickHandler, liveMarkdownPlugin, liveMarkdownTheme } from "@/components/notes/editor/liveMarkdownPlugin";
-import { headingFoldExtension } from "@/components/notes/editor/headingFold";
+import { headingFoldExtension, suppressDefaultBlockFold } from "@/components/notes/editor/headingFold";
 import { createWikilinkExtensions, type WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
+import { lineEmbedPlugin, lineEmbedTheme } from "@/components/notes/editor/lineEmbedPlugin";
 import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
 
 interface SlashCommand {
@@ -230,7 +231,7 @@ export function NoteBodyEditor({
           ])
         ),
         keymap.of([...defaultKeymap, ...historyKeymap]),
-        markdown({ extensions: [GFM] }),
+        markdown({ extensions: [GFM, suppressDefaultBlockFold] }),
         liveMarkdownPlugin,
         linkClickHandler,
         headingFoldExtension,
@@ -238,6 +239,8 @@ export function NoteBodyEditor({
           () => allNoteTitlesRef.current,
           (target) => onWikilinkClickRef.current?.(target)
         ),
+        lineEmbedPlugin,
+        lineEmbedTheme,
         EditorView.lineWrapping,
         editorTheme,
         liveMarkdownTheme,
