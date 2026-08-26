@@ -36,6 +36,13 @@ export function buildFolderTree(folders: Folder[], notes: NoteSummary[]) {
   return { roots, rootNotes };
 }
 
+/** Total notes anywhere in a folder's subtree (itself plus every nested
+ * descendant), for surfacing an accurate impact count before a destructive
+ * delete -- node.notes alone only covers this folder's direct notes. */
+export function countNotesInSubtree(node: FolderNode): number {
+  return node.notes.length + node.children.reduce((sum, child) => sum + countNotesInSubtree(child), 0);
+}
+
 /** Flat, indented list of folders for a "move to" picker, excluding a
  * folder and its own descendants (a folder can't be moved into itself). */
 export function flattenForPicker(roots: FolderNode[], excludeSubtreeRootId?: string): { id: string; label: string }[] {

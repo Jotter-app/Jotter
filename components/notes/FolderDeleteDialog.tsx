@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { deleteFolder } from "@/lib/actions/folders";
+import { deleteFolder, type DeleteFolderMode } from "@/lib/actions/folders";
 
 // A folder with contents always asks which way to handle them -- notes
 // must never be silently orphaned or destroyed without an explicit choice.
@@ -19,15 +19,17 @@ export function FolderDeleteDialog({
   folderId,
   folderName,
   hasContents,
+  totalNoteCount,
 }: {
   folderId: string;
   folderName: string;
   hasContents: boolean;
+  totalNoteCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  function handleDelete(mode: "cascade" | "move-to-parent") {
+  function handleDelete(mode: DeleteFolderMode) {
     startTransition(async () => {
       await deleteFolder({ folderId, mode });
       setOpen(false);
@@ -55,6 +57,8 @@ export function FolderDeleteDialog({
           <DialogTitle>Delete &quot;{folderName}&quot;?</DialogTitle>
           <DialogDescription>
             This folder has sub-folders or notes inside it. Choose what to do with them.
+            {totalNoteCount > 0 &&
+              ` It contains ${totalNoteCount} note${totalNoteCount === 1 ? "" : "s"} in total.`}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -64,8 +68,11 @@ export function FolderDeleteDialog({
           <Button variant="outline" onClick={() => handleDelete("move-to-parent")} disabled={isPending}>
             Move contents up
           </Button>
-          <Button variant="destructive" onClick={() => handleDelete("cascade")} disabled={isPending}>
-            Delete everything
+          <Button variant="outline" onClick={() => handleDelete("cascade")} disabled={isPending}>
+            Delete folders, keep notes
+          </Button>
+          <Button variant="destructive" onClick={() => handleDelete("cascade-delete-notes")} disabled={isPending}>
+            Delete folders and notes
           </Button>
         </DialogFooter>
       </DialogContent>

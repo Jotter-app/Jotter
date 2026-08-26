@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { FolderDeleteDialog } from "@/components/notes/FolderDeleteDialog";
 import { createFolder, renameFolder, moveFolder } from "@/lib/actions/folders";
 import { createNote, deleteNote, moveNote } from "@/lib/actions/notes";
-import { flattenForPicker, type FolderNode } from "@/lib/notes/tree";
+import { countNotesInSubtree, flattenForPicker, type FolderNode } from "@/lib/notes/tree";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
 
 type NoteSummary = { id: string; title: string; folder_id: string | null };
@@ -114,7 +114,12 @@ function FolderRow({ node, depth, allFolders }: { node: FolderNode; depth: numbe
             ))}
           </select>
 
-          <FolderDeleteDialog folderId={node.id} folderName={node.name} hasContents={hasContents} />
+          <FolderDeleteDialog
+            folderId={node.id}
+            folderName={node.name}
+            hasContents={hasContents}
+            totalNoteCount={countNotesInSubtree(node)}
+          />
         </div>
       </div>
 
