@@ -7,6 +7,7 @@ import { currentUserId } from "@/lib/supabase/session";
 import { extractTags } from "@/lib/markdown/extractTags";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 import { processNoteTaskCommands } from "@/lib/jotter/processNoteCommands";
+import { syncNoteLinksCore } from "@/lib/actions/noteLinks";
 import type { Database } from "@/lib/supabase/database.types";
 
 export interface InsertNoteParams {
@@ -126,6 +127,11 @@ export async function saveNote(
   if (error || !updated) {
     return { ok: false, conflict: false, updatedAt: null };
   }
+
+  // Exact sync (unlike tags below, which only ever add) -- wikilinks have
+  // no separate assignment UI, so the text is the only source of truth for
+  // what a note links to.
+  await syncNoteLinksCore(supabase, userId, noteId, processedBody);
 
   // Hashtags only ever add tags, never remove them on save -- a tag
   // manually assigned via the picker (or a hashtag the user later deletes
