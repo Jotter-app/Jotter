@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
 import { extractTags } from "@/lib/markdown/extractTags";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
+import { processNoteTaskCommands } from "@/lib/jotter/processNoteCommands";
 import type { Database } from "@/lib/supabase/database.types";
 
 export interface InsertNoteParams {
@@ -98,9 +99,15 @@ export async function saveNote(
     return { ok: false, conflict: true, updatedAt: current.updated_at };
   }
 
+  // Turns any "/task create ..." lines into linked tasks and replaces them
+  // with a plain checkbox -- see lib/jotter/processNoteCommands.ts. A no-op
+  // (returns bodyMarkdown unchanged) when there's nothing to process, which
+  // is the common case on every ordinary save.
+  const processedBody = await processNoteTaskCommands(supabase, userId, noteId, bodyMarkdown);
+
   const { data: updated, error } = await supabase
     .from("notes")
-    .update({ title, body_markdown: bodyMarkdown })
+    .update({ title, body_markdown: processedBody })
     .eq("id", noteId)
     .select("updated_at")
     .single();
@@ -111,7 +118,7 @@ export async function saveNote(
   // Hashtags only ever add tags, never remove them on save -- a tag
   // manually assigned via the picker (or a hashtag the user later deletes
   // from the text) should not silently disappear.
-  const tagNames = extractTags(bodyMarkdown);
+  const tagNames = extractTags(processedBody);
   for (const name of tagNames) {
     const tagId = await findOrCreateTag(supabase, userId, name);
     if (!tagId) continue;
@@ -125,5 +132,7 @@ export async function saveNote(
   }
 
   revalidatePath("/notes");
+  revalidatePath("/tasks");
+  revalidatePath("/calendar");
   return { ok: true, conflict: false, updatedAt: updated.updated_at };
 }
