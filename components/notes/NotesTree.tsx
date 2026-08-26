@@ -223,19 +223,25 @@ function NewItemRow({ parentFolderId }: { parentFolderId: string | null }) {
     );
   }
 
+  // Hidden until this row (or one of its own buttons, for keyboard users)
+  // is hovered/focused -- decluttering, since it otherwise sits permanently
+  // visible under every expanded folder.
   return (
-    <div className="flex items-center gap-3 py-1 text-xs text-muted-foreground" style={{ marginLeft: 16 }}>
+    <div
+      className="group/newitem flex items-center gap-3 py-1 text-xs text-muted-foreground"
+      style={{ marginLeft: 16 }}
+    >
       <button
         type="button"
         onClick={() => setMode("folder")}
-        className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+        className="inline-flex items-center gap-1 opacity-0 transition-opacity hover:text-foreground hover:underline group-hover/newitem:opacity-100 focus-visible:opacity-100"
       >
         <Plus className="size-3" /> folder
       </button>
       <button
         type="button"
         onClick={() => startTransition(() => createNote(parentFolderId))}
-        className="inline-flex items-center gap-1 hover:text-foreground hover:underline"
+        className="inline-flex items-center gap-1 opacity-0 transition-opacity hover:text-foreground hover:underline group-hover/newitem:opacity-100 focus-visible:opacity-100"
       >
         <Plus className="size-3" /> note
       </button>
