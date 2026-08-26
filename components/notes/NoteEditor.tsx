@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
+import { format, formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TagPicker } from "@/components/tags/TagPicker";
@@ -70,6 +71,10 @@ export function NoteEditor({
           className="border-none px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
         />
         <TagPicker taggableId={note.id} taggableType="note" allTags={allTags} assignedTags={assignedTags} />
+        <p className="text-xs text-muted-foreground">
+          Created {format(new Date(note.created_at), "MMM d, yyyy")} &middot; Edited{" "}
+          {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}
+        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

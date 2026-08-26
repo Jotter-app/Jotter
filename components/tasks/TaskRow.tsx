@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PRIORITY_LEVELS, priorityColor, priorityLabel } from "@/lib/tasks/priority";
+import { formatRelativeDays } from "@/lib/dates/relativeDays";
 import { deleteTask, toggleTaskComplete, updateTask } from "@/lib/actions/tasks";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
 import { TagPicker } from "@/components/tags/TagPicker";
@@ -152,7 +153,7 @@ export function TaskRow({
         )}
         {task.due_at && (
           <span className="whitespace-nowrap text-xs text-muted-foreground">
-            {format(new Date(task.due_at), "MMM d, h:mm a")}
+            {formatRelativeDays(new Date(task.due_at))} &middot; {format(new Date(task.due_at), "MMM d, h:mm a")}
           </span>
         )}
         <ConfirmDeleteButton

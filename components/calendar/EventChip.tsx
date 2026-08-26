@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Checkbox } from "@/components/ui/checkbox";
 import { EventDeleteDialog } from "@/components/calendar/EventDeleteDialog";
 import { toggleTaskComplete } from "@/lib/actions/tasks";
+import { formatRelativeDays } from "@/lib/dates/relativeDays";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
@@ -43,6 +44,7 @@ export function EventChip({ event, linkedTask }: { event: Event; linkedTask?: Li
       <PopoverContent className="w-56">
         <p className="text-sm font-medium">{event.title}</p>
         <p className="text-xs text-muted-foreground">
+          {formatRelativeDays(new Date(event.start_at))} &middot;{" "}
           {format(new Date(event.start_at), "MMM d, h:mm a")} &ndash;{" "}
           {format(new Date(event.end_at), "h:mm a")}
         </p>
