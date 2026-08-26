@@ -12,13 +12,18 @@ class CheckboxWidget extends WidgetType {
   constructor(
     private readonly checked: boolean,
     private readonly from: number,
-    private readonly to: number
+    private readonly to: number,
+    private readonly taskId: string | null,
+    private readonly getLinkedTaskDueAt: (taskId: string) => string | null,
+    private readonly onToggleTask: (taskId: string, checked: boolean, dueAt: string | null) => void
   ) {
     super();
   }
 
   eq(other: CheckboxWidget) {
-    return other.checked === this.checked && other.from === this.from && other.to === this.to;
+    return (
+      other.checked === this.checked && other.from === this.from && other.to === this.to && other.taskId === this.taskId
+    );
   }
 
   toDOM(view: EditorView) {
@@ -31,7 +36,16 @@ class CheckboxWidget extends WidgetType {
     // rather than intercepting the click lets the checkbox behave like a
     // normal one -- we just mirror its new state back into the doc text.
     input.addEventListener("change", () => {
-      view.dispatch({ changes: { from: this.from, to: this.to, insert: this.checked ? "[ ]" : "[x]" } });
+      const nextChecked = !this.checked;
+      view.dispatch({ changes: { from: this.from, to: this.to, insert: nextChecked ? "[x]" : "[ ]" } });
+      // A checkbox with no <!-- task:<uuid> --> marker is just text, same
+      // as before -- only a marked one (originating from /task create)
+      // also flips the real task's completion, immediately and without a
+      // forced note save (see the plan's Context section for why: saving
+      // body_markdown in the background here would bump notes.updated_at
+      // behind the user's back, which saveNote's optimistic-concurrency
+      // check would then see as a false conflict on their next real save).
+      if (this.taskId) this.onToggleTask(this.taskId, nextChecked, this.getLinkedTaskDueAt(this.taskId));
     });
     return input;
   }
@@ -78,7 +92,16 @@ interface DecoEntry {
   deco: Decoration;
 }
 
-function buildDecorations(view: EditorView): DecorationSet {
+// Trailing metadata appended by processNoteTaskCommands -- always hidden,
+// never shown even on the active line, since it's not something a person
+// typed or should edit directly.
+const TASK_MARKER_COMMENT = /<!-- task:([0-9a-fA-F-]+) -->\s*$/;
+
+function buildDecorations(
+  view: EditorView,
+  getLinkedTaskDueAt: (taskId: string) => string | null,
+  onToggleTask: (taskId: string, checked: boolean, dueAt: string | null) => void
+): DecorationSet {
   const { state } = view;
   const doc = state.doc;
 
@@ -187,11 +210,19 @@ function buildDecorations(view: EditorView): DecorationSet {
 
         if (name === "TaskMarker") {
           const checked = /x/i.test(doc.sliceString(nodeRef.from, nodeRef.to));
+          const line = doc.lineAt(nodeRef.from);
+          const markerMatch = TASK_MARKER_COMMENT.exec(line.text);
+          const taskId = markerMatch ? markerMatch[1] : null;
+
           marks.push({
             from: nodeRef.from,
             to: nodeRef.to,
-            deco: Decoration.replace({ widget: new CheckboxWidget(checked, nodeRef.from, nodeRef.to) }),
+            deco: Decoration.replace({
+              widget: new CheckboxWidget(checked, nodeRef.from, nodeRef.to, taskId, getLinkedTaskDueAt, onToggleTask),
+            }),
           });
+
+          if (markerMatch) hide(line.from + markerMatch.index, line.to);
           return;
         }
 
@@ -256,20 +287,30 @@ function buildDecorations(view: EditorView): DecorationSet {
   return RangeSet.join([lineBuilder.finish(), markBuilder.finish()]);
 }
 
-export const liveMarkdownPlugin = ViewPlugin.fromClass(
-  class {
-    decorations: DecorationSet;
-    constructor(view: EditorView) {
-      this.decorations = buildDecorations(view);
-    }
-    update(update: ViewUpdate) {
-      if (update.docChanged || update.selectionSet || update.viewportChanged) {
-        this.decorations = buildDecorations(update.view);
+// A factory (like createWikilinkExtensions) rather than a bare extension --
+// needs live access to linked tasks' due dates and a callback into React
+// for the actual toggleTaskComplete call, both of which change over the
+// component's lifetime. Callers pass getters/callbacks that read from refs
+// kept fresh by the caller.
+export function createLiveMarkdownPlugin(
+  getLinkedTaskDueAt: (taskId: string) => string | null,
+  onToggleTask: (taskId: string, checked: boolean, dueAt: string | null) => void
+) {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      constructor(view: EditorView) {
+        this.decorations = buildDecorations(view, getLinkedTaskDueAt, onToggleTask);
       }
-    }
-  },
-  { decorations: (v) => v.decorations }
-);
+      update(update: ViewUpdate) {
+        if (update.docChanged || update.selectionSet || update.viewportChanged) {
+          this.decorations = buildDecorations(update.view, getLinkedTaskDueAt, onToggleTask);
+        }
+      }
+    },
+    { decorations: (v) => v.decorations }
+  );
+}
 
 // Ctrl/Cmd+click follows a rendered link -- matches the standard
 // code-editor convention (VS Code, etc.) and sidesteps the ambiguity a

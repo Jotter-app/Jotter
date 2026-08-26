@@ -37,11 +37,14 @@ describe("processNoteTaskCommands", () => {
     const result = await processNoteTaskCommands(user.client, user.userId, noteId, body);
 
     expect(result).not.toContain("/task create");
-    expect(result.split("\n")[1]).toMatch(/^- \[ \] call mom \(due .+\) #family$/);
+
+    const lineMatch = result.split("\n")[1].match(/^- \[ \] call mom \(due .+\) #family <!-- task:([0-9a-f-]+) -->$/);
+    expect(lineMatch).not.toBeNull();
 
     const { data: task } = await user.client.from("tasks").select("id, title, due_at").eq("title", "call mom").single();
     expect(task).not.toBeNull();
     expect(task?.due_at).not.toBeNull();
+    expect(lineMatch![1]).toBe(task!.id);
 
     const { data: link } = await user.client
       .from("task_note_links")

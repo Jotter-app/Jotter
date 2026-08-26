@@ -6,7 +6,7 @@ import { EditorView, keymap, placeholder as placeholderExtension } from "@codemi
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { GFM } from "@lezer/markdown";
-import { linkClickHandler, liveMarkdownPlugin, liveMarkdownTheme } from "@/components/notes/editor/liveMarkdownPlugin";
+import { createLiveMarkdownPlugin, linkClickHandler, liveMarkdownTheme } from "@/components/notes/editor/liveMarkdownPlugin";
 import { headingFoldExtension, suppressDefaultBlockFold } from "@/components/notes/editor/headingFold";
 import { createWikilinkExtensions, type WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
 import { lineEmbedPlugin, lineEmbedTheme } from "@/components/notes/editor/lineEmbedPlugin";
@@ -61,6 +61,13 @@ interface WikilinkMenuState {
 
 type MenuState = SlashMenuState | WikilinkMenuState;
 
+// Only the fields the checkbox widget needs to correlate a marked line back
+// to its real task and restore its reminder on un-completion.
+interface LinkedTaskInfo {
+  id: string;
+  due_at: string | null;
+}
+
 // Matches this app's CSS-variable theme (see app/globals.css) rather than a
 // packaged CM6 theme, so light/dark just falls out of the same .dark class
 // toggle next-themes already applies -- no JS-side theme switching needed.
@@ -101,6 +108,8 @@ export function NoteBodyEditor({
   className,
   allNoteTitles = [],
   onWikilinkClick,
+  linkedTasks = [],
+  onToggleLinkedTask,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -108,12 +117,16 @@ export function NoteBodyEditor({
   className?: string;
   allNoteTitles?: WikilinkCandidate[];
   onWikilinkClick?: (target: WikilinkTarget) => void;
+  linkedTasks?: LinkedTaskInfo[];
+  onToggleLinkedTask?: (taskId: string, checked: boolean, dueAt: string | null) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   const allNoteTitlesRef = useRef(allNoteTitles);
   const onWikilinkClickRef = useRef(onWikilinkClick);
+  const linkedTasksRef = useRef(linkedTasks);
+  const onToggleLinkedTaskRef = useRef(onToggleLinkedTask);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const menuRef = useRef<MenuState | null>(null);
 
@@ -125,6 +138,8 @@ export function NoteBodyEditor({
     onChangeRef.current = onChange;
     allNoteTitlesRef.current = allNoteTitles;
     onWikilinkClickRef.current = onWikilinkClick;
+    linkedTasksRef.current = linkedTasks;
+    onToggleLinkedTaskRef.current = onToggleLinkedTask;
     menuRef.current = menu;
   });
 
@@ -232,7 +247,10 @@ export function NoteBodyEditor({
         ),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         markdown({ extensions: [GFM, suppressDefaultBlockFold] }),
-        liveMarkdownPlugin,
+        createLiveMarkdownPlugin(
+          (taskId) => linkedTasksRef.current.find((t) => t.id === taskId)?.due_at ?? null,
+          (taskId, checked, dueAt) => onToggleLinkedTaskRef.current?.(taskId, checked, dueAt)
+        ),
         linkClickHandler,
         headingFoldExtension,
         createWikilinkExtensions(

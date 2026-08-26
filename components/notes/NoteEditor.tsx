@@ -11,6 +11,7 @@ import { LinkedTasksPicker } from "@/components/notes/LinkedTasksPicker";
 import { NoteBodyEditor } from "@/components/notes/NoteBodyEditor";
 import type { WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
 import { saveNote, createNoteFromWikilink } from "@/lib/actions/notes";
+import { toggleTaskComplete } from "@/lib/actions/tasks";
 import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -54,6 +55,10 @@ export function NoteEditor({
       setConflict(false);
       router.refresh();
     });
+  }
+
+  function handleToggleLinkedTask(taskId: string, checked: boolean, dueAt: string | null) {
+    startTransition(() => toggleTaskComplete(taskId, checked, dueAt));
   }
 
   function handleWikilinkClick(target: WikilinkTarget) {
@@ -128,6 +133,8 @@ export function NoteEditor({
         className="min-h-96 w-full rounded-xl border bg-card p-3 text-sm shadow-sm outline-none focus-within:ring-3 focus-within:ring-ring/50"
         allNoteTitles={allNoteTitles}
         onWikilinkClick={handleWikilinkClick}
+        linkedTasks={linkedTasks}
+        onToggleLinkedTask={handleToggleLinkedTask}
       />
 
       <div className="flex items-center gap-3">
