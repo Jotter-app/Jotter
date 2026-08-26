@@ -9,20 +9,26 @@ import { format, formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TagPicker } from "@/components/tags/TagPicker";
+import { LinkedTasksPicker } from "@/components/notes/LinkedTasksPicker";
 import { saveNote } from "@/lib/actions/notes";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Note = Database["public"]["Tables"]["notes"]["Row"];
 type Tag = Database["public"]["Tables"]["tags"]["Row"];
+type TaskOption = { id: string; title: string; completed_at: string | null; due_at: string | null };
 
 export function NoteEditor({
   note,
   allTags,
   assignedTags,
+  allTasks,
+  linkedTasks,
 }: {
   note: Note;
   allTags: Tag[];
   assignedTags: Tag[];
+  allTasks: TaskOption[];
+  linkedTasks: TaskOption[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -75,6 +81,7 @@ export function NoteEditor({
           Created {format(new Date(note.created_at), "MMM d, yyyy")} &middot; Edited{" "}
           {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}
         </p>
+        <LinkedTasksPicker noteId={note.id} allTasks={allTasks} linkedTasks={linkedTasks} />
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">

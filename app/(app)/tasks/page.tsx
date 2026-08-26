@@ -8,11 +8,14 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   const { tag: tagFilter } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: tasks }, { data: tags }, { data: taggables }] = await Promise.all([
-    supabase.from("tasks").select().order("due_at", { ascending: true, nullsFirst: false }),
-    supabase.from("tags").select().order("name"),
-    supabase.from("taggables").select("tag_id, taggable_id, tags(*)").eq("taggable_type", "task"),
-  ]);
+  const [{ data: tasks }, { data: tags }, { data: taggables }, { data: allNotes }, { data: taskNoteLinks }] =
+    await Promise.all([
+      supabase.from("tasks").select().order("due_at", { ascending: true, nullsFirst: false }),
+      supabase.from("tags").select().order("name"),
+      supabase.from("taggables").select("tag_id, taggable_id, tags(*)").eq("taggable_type", "task"),
+      supabase.from("notes").select("id, title").order("title"),
+      supabase.from("task_note_links").select("task_id, notes(id, title)"),
+    ]);
 
   const allTags = tags ?? [];
 
@@ -22,6 +25,14 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     const existing = tagsByTaskId.get(row.taggable_id) ?? [];
     existing.push(row.tags);
     tagsByTaskId.set(row.taggable_id, existing);
+  }
+
+  const linkedNotesByTaskId = new Map<string, { id: string; title: string }[]>();
+  for (const row of taskNoteLinks ?? []) {
+    if (!row.notes) continue;
+    const existing = linkedNotesByTaskId.get(row.task_id) ?? [];
+    existing.push(row.notes);
+    linkedNotesByTaskId.set(row.task_id, existing);
   }
 
   let rows = tasks ?? [];
@@ -83,6 +94,8 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
                     task={task}
                     allTags={allTags}
                     assignedTags={tagsByTaskId.get(task.id) ?? []}
+                    allNotes={allNotes ?? []}
+                    linkedNotes={linkedNotesByTaskId.get(task.id) ?? []}
                   />
                 ))}
               </ul>
@@ -112,6 +125,8 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
                 task={task}
                 allTags={allTags}
                 assignedTags={tagsByTaskId.get(task.id) ?? []}
+                allNotes={allNotes ?? []}
+                linkedNotes={linkedNotesByTaskId.get(task.id) ?? []}
               />
             ))}
           </ul>

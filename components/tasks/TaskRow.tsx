@@ -18,10 +18,12 @@ import { formatRelativeDays } from "@/lib/dates/relativeDays";
 import { deleteTask, toggleTaskComplete, updateTask } from "@/lib/actions/tasks";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
 import { TagPicker } from "@/components/tags/TagPicker";
+import { LinkedNotesPicker } from "@/components/tasks/LinkedNotesPicker";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
 type Tag = Database["public"]["Tables"]["tags"]["Row"];
+type NoteOption = { id: string; title: string };
 
 const DATETIME_LOCAL_FORMAT = "yyyy-MM-dd'T'HH:mm";
 
@@ -29,10 +31,14 @@ export function TaskRow({
   task,
   allTags,
   assignedTags,
+  allNotes,
+  linkedNotes,
 }: {
   task: Task;
   allTags: Tag[];
   assignedTags: Tag[];
+  allNotes: NoteOption[];
+  linkedNotes: NoteOption[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -163,6 +169,7 @@ export function TaskRow({
         />
       </div>
       <TagPicker taggableId={task.id} taggableType="task" allTags={allTags} assignedTags={assignedTags} />
+      <LinkedNotesPicker taskId={task.id} allNotes={allNotes} linkedNotes={linkedNotes} />
     </li>
   );
 }
