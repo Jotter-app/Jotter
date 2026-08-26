@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TagPicker } from "@/components/tags/TagPicker";
 import { LinkedTasksPicker } from "@/components/notes/LinkedTasksPicker";
+import { NoteBodyEditor } from "@/components/notes/NoteBodyEditor";
 import { saveNote } from "@/lib/actions/notes";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -88,14 +89,14 @@ export function NoteEditor({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <span className="px-1 text-xs font-medium text-muted-foreground">Markdown</span>
-          <textarea
+          <NoteBodyEditor
             value={body}
-            onChange={(e) => {
-              setBody(e.target.value);
+            onChange={(value) => {
+              setBody(value);
               setDirty(true);
             }}
             placeholder={'Write in markdown... use #tags anywhere, or /task create "title" tomorrow 5pm on its own line to add a linked task'}
-            className="min-h-96 rounded-xl border bg-card p-3 font-mono text-sm shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="min-h-96 w-full rounded-xl border bg-card p-3 font-mono text-sm shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           />
         </div>
         <div className="flex flex-col gap-1.5">
