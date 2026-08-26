@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import rehypeSanitize from "rehype-sanitize";
 import { format, formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -100,7 +101,7 @@ export function NoteEditor({
         <div className="flex flex-col gap-1.5">
           <span className="px-1 text-xs font-medium text-muted-foreground">Preview</span>
           <div className="prose prose-sm min-h-96 max-w-none rounded-xl border bg-card p-3 shadow-sm dark:prose-invert">
-            <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
+            <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeSanitize]}>
               {body || "*Nothing to preview yet.*"}
             </Markdown>
           </div>
