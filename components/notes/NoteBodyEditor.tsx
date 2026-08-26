@@ -7,6 +7,7 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { GFM } from "@lezer/markdown";
 import { linkClickHandler, liveMarkdownPlugin, liveMarkdownTheme } from "@/components/notes/editor/liveMarkdownPlugin";
+import { headingFoldExtension } from "@/components/notes/editor/headingFold";
 
 interface SlashCommand {
   keyword: string;
@@ -180,6 +181,7 @@ export function NoteBodyEditor({
         markdown({ extensions: [GFM] }),
         liveMarkdownPlugin,
         linkClickHandler,
+        headingFoldExtension,
         EditorView.lineWrapping,
         editorTheme,
         liveMarkdownTheme,
