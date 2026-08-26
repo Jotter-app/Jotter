@@ -6,6 +6,7 @@ import { EditorView, keymap, placeholder as placeholderExtension } from "@codemi
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { GFM } from "@lezer/markdown";
+import { linkClickHandler, liveMarkdownPlugin, liveMarkdownTheme } from "@/components/notes/editor/liveMarkdownPlugin";
 
 interface SlashCommand {
   keyword: string;
@@ -177,8 +178,11 @@ export function NoteBodyEditor({
         ),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         markdown({ extensions: [GFM] }),
+        liveMarkdownPlugin,
+        linkClickHandler,
         EditorView.lineWrapping,
         editorTheme,
+        liveMarkdownTheme,
         placeholderExtension(placeholder ?? ""),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {

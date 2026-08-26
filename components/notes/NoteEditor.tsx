@@ -2,10 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkBreaks from "remark-breaks";
-import rehypeSanitize from "rehype-sanitize";
 import { format, formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -86,28 +82,15 @@ export function NoteEditor({
         <LinkedTasksPicker noteId={note.id} allTasks={allTasks} linkedTasks={linkedTasks} />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <span className="px-1 text-xs font-medium text-muted-foreground">Markdown</span>
-          <NoteBodyEditor
-            value={body}
-            onChange={(value) => {
-              setBody(value);
-              setDirty(true);
-            }}
-            placeholder={'Write in markdown... use #tags anywhere, or /task create "title" tomorrow 5pm on its own line to add a linked task'}
-            className="min-h-96 w-full rounded-xl border bg-card p-3 font-mono text-sm shadow-sm outline-none focus-within:ring-3 focus-within:ring-ring/50"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <span className="px-1 text-xs font-medium text-muted-foreground">Preview</span>
-          <div className="prose prose-sm min-h-96 max-w-none rounded-xl border bg-card p-3 shadow-sm dark:prose-invert">
-            <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} rehypePlugins={[rehypeSanitize]}>
-              {body || "*Nothing to preview yet.*"}
-            </Markdown>
-          </div>
-        </div>
-      </div>
+      <NoteBodyEditor
+        value={body}
+        onChange={(value) => {
+          setBody(value);
+          setDirty(true);
+        }}
+        placeholder={'Write in markdown... use #tags anywhere, or /task create "title" tomorrow 5pm on its own line to add a linked task'}
+        className="min-h-96 w-full rounded-xl border bg-card p-3 text-sm shadow-sm outline-none focus-within:ring-3 focus-within:ring-ring/50"
+      />
 
       <div className="flex items-center gap-3">
         <Button onClick={() => handleSave(false)} disabled={isPending || !dirty}>
