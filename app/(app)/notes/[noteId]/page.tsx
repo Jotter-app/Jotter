@@ -8,18 +8,30 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
   const { noteId } = await params;
   const supabase = await createClient();
 
-  const [{ data: note }, { data: tags }, { data: taggables }, { data: allTasks }, { data: taskNoteLinks }] =
-    await Promise.all([
-      supabase.from("notes").select().eq("id", noteId).maybeSingle(),
-      supabase.from("tags").select().order("name"),
-      supabase
-        .from("taggables")
-        .select("tags(*)")
-        .eq("taggable_type", "note")
-        .eq("taggable_id", noteId),
-      supabase.from("tasks").select("id, title, completed_at, due_at").order("title"),
-      supabase.from("task_note_links").select("tasks(id, title, completed_at, due_at)").eq("note_id", noteId),
-    ]);
+  const [
+    { data: note },
+    { data: tags },
+    { data: taggables },
+    { data: allTasks },
+    { data: taskNoteLinks },
+    { data: allNoteTitles },
+    { data: noteLinks },
+  ] = await Promise.all([
+    supabase.from("notes").select().eq("id", noteId).maybeSingle(),
+    supabase.from("tags").select().order("name"),
+    supabase
+      .from("taggables")
+      .select("tags(*)")
+      .eq("taggable_type", "note")
+      .eq("taggable_id", noteId),
+    supabase.from("tasks").select("id, title, completed_at, due_at").order("title"),
+    supabase.from("task_note_links").select("tasks(id, title, completed_at, due_at)").eq("note_id", noteId),
+    supabase.from("notes").select("id, title, updated_at").order("title"),
+    supabase
+      .from("note_links")
+      .select("notes!note_links_source_note_id_fkey(id, title)")
+      .eq("target_note_id", noteId),
+  ]);
 
   if (!note) {
     notFound();
@@ -27,6 +39,7 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
 
   const assignedTags = (taggables ?? []).flatMap((row) => (row.tags ? [row.tags] : []));
   const linkedTasks = (taskNoteLinks ?? []).flatMap((row) => (row.tasks ? [row.tasks] : []));
+  const backlinks = (noteLinks ?? []).flatMap((row) => (row.notes ? [row.notes] : []));
 
   return (
     <div className="flex w-full flex-col">
@@ -45,6 +58,8 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
         assignedTags={assignedTags}
         allTasks={allTasks ?? []}
         linkedTasks={linkedTasks}
+        allNoteTitles={allNoteTitles ?? []}
+        backlinks={backlinks}
       />
     </div>
   );

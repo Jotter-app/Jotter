@@ -8,6 +8,8 @@ import { markdown } from "@codemirror/lang-markdown";
 import { GFM } from "@lezer/markdown";
 import { linkClickHandler, liveMarkdownPlugin, liveMarkdownTheme } from "@/components/notes/editor/liveMarkdownPlugin";
 import { headingFoldExtension } from "@/components/notes/editor/headingFold";
+import { createWikilinkExtensions, type WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
+import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
 
 interface SlashCommand {
   keyword: string;
@@ -33,12 +35,30 @@ const SLASH_COMMANDS: SlashCommand[] = [
 // looks for commands, and keeps this from firing mid-sentence.
 const SLASH_TRIGGER = /^\/(\w*)$/i;
 
-interface MenuState {
+// An unclosed "[[" anywhere on the current line, with no "]" or "["
+// after it -- the same regex shape used by wikilinkPlugin.ts to decide a
+// wikilink isn't terminated yet.
+const WIKILINK_TRIGGER = /\[\[([^[\]]*)$/;
+const WIKILINK_CANDIDATE_LIMIT = 8;
+
+interface SlashMenuState {
+  kind: "slash";
   top: number;
   left: number;
   lineStart: number;
   command: SlashCommand;
 }
+
+interface WikilinkMenuState {
+  kind: "wikilink";
+  top: number;
+  left: number;
+  from: number;
+  to: number;
+  candidates: WikilinkCandidate[];
+}
+
+type MenuState = SlashMenuState | WikilinkMenuState;
 
 // Matches this app's CSS-variable theme (see app/globals.css) rather than a
 // packaged CM6 theme, so light/dark just falls out of the same .dark class
@@ -78,39 +98,39 @@ export function NoteBodyEditor({
   onChange,
   placeholder,
   className,
+  allNoteTitles = [],
+  onWikilinkClick,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  allNoteTitles?: WikilinkCandidate[];
+  onWikilinkClick?: (target: WikilinkTarget) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
+  const allNoteTitlesRef = useRef(allNoteTitles);
+  const onWikilinkClickRef = useRef(onWikilinkClick);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const menuRef = useRef<MenuState | null>(null);
 
   // Kept fresh via an effect rather than assigned directly during render --
   // these refs are read from inside CM6 extension closures set up once at
   // mount (see below), which would otherwise only ever see the initial
-  // `onChange`/`menu` values.
+  // prop/state values.
   useEffect(() => {
     onChangeRef.current = onChange;
+    allNoteTitlesRef.current = allNoteTitles;
+    onWikilinkClickRef.current = onWikilinkClick;
     menuRef.current = menu;
   });
 
-  function evaluateSlashTrigger(view: EditorView) {
+  function evaluateMenus(view: EditorView) {
     const cursor = view.state.selection.main.head;
     const line = view.state.doc.lineAt(cursor);
     const linePrefix = line.text.slice(0, cursor - line.from);
-    const match = linePrefix.match(SLASH_TRIGGER);
-    const partial = match?.[1].toLowerCase();
-    const command = partial !== undefined ? SLASH_COMMANDS.find((c) => c.keyword.startsWith(partial)) : undefined;
-
-    if (!command) {
-      setMenu(null);
-      return;
-    }
 
     const coords = view.coordsAtPos(cursor);
     const wrapperRect = containerRef.current?.getBoundingClientRect();
@@ -118,16 +138,33 @@ export function NoteBodyEditor({
       setMenu(null);
       return;
     }
+    const top = coords.bottom - wrapperRect.top;
+    const left = coords.left - wrapperRect.left;
 
-    setMenu({
-      top: coords.bottom - wrapperRect.top,
-      left: coords.left - wrapperRect.left,
-      lineStart: line.from,
-      command,
-    });
+    const slashMatch = linePrefix.match(SLASH_TRIGGER);
+    const partial = slashMatch?.[1].toLowerCase();
+    const command = partial !== undefined ? SLASH_COMMANDS.find((c) => c.keyword.startsWith(partial)) : undefined;
+    if (command) {
+      setMenu({ kind: "slash", top, left, lineStart: line.from, command });
+      return;
+    }
+
+    const wikiMatch = linePrefix.match(WIKILINK_TRIGGER);
+    if (wikiMatch) {
+      const query = wikiMatch[1].trim().toLowerCase();
+      const candidates = allNoteTitlesRef.current
+        .filter((t) => t.title.toLowerCase().includes(query))
+        .slice(0, WIKILINK_CANDIDATE_LIMIT);
+      if (candidates.length > 0) {
+        setMenu({ kind: "wikilink", top, left, from: cursor - wikiMatch[0].length, to: cursor, candidates });
+        return;
+      }
+    }
+
+    setMenu(null);
   }
 
-  function selectCommand(view: EditorView, state: MenuState) {
+  function selectSlashCommand(view: EditorView, state: SlashMenuState) {
     const cursor = view.state.selection.main.head;
     view.dispatch({
       changes: { from: state.lineStart, to: cursor, insert: state.command.template },
@@ -135,6 +172,21 @@ export function NoteBodyEditor({
     });
     setMenu(null);
     view.focus();
+  }
+
+  function selectWikilinkCandidate(view: EditorView, state: WikilinkMenuState, candidate: WikilinkCandidate) {
+    const insert = `[[${candidate.title}]]`;
+    view.dispatch({
+      changes: { from: state.from, to: state.to, insert },
+      selection: { anchor: state.from + insert.length },
+    });
+    setMenu(null);
+    view.focus();
+  }
+
+  function selectMenuItem(view: EditorView, state: MenuState) {
+    if (state.kind === "slash") selectSlashCommand(view, state);
+    else selectWikilinkCandidate(view, state, state.candidates[0]);
   }
 
   useEffect(() => {
@@ -155,7 +207,7 @@ export function NoteBodyEditor({
               key: "Enter",
               run: (view) => {
                 if (!menuRef.current) return false;
-                selectCommand(view, menuRef.current);
+                selectMenuItem(view, menuRef.current);
                 return true;
               },
             },
@@ -163,7 +215,7 @@ export function NoteBodyEditor({
               key: "Tab",
               run: (view) => {
                 if (!menuRef.current) return false;
-                selectCommand(view, menuRef.current);
+                selectMenuItem(view, menuRef.current);
                 return true;
               },
             },
@@ -182,6 +234,10 @@ export function NoteBodyEditor({
         liveMarkdownPlugin,
         linkClickHandler,
         headingFoldExtension,
+        createWikilinkExtensions(
+          () => allNoteTitlesRef.current,
+          (target) => onWikilinkClickRef.current?.(target)
+        ),
         EditorView.lineWrapping,
         editorTheme,
         liveMarkdownTheme,
@@ -191,7 +247,7 @@ export function NoteBodyEditor({
             onChangeRef.current(update.state.doc.toString());
           }
           if (update.docChanged || update.selectionSet) {
-            evaluateSlashTrigger(update.view);
+            evaluateMenus(update.view);
           }
         }),
       ],
@@ -228,7 +284,7 @@ export function NoteBodyEditor({
   return (
     <div className="relative">
       <div ref={containerRef} className={className} />
-      {menu && (
+      {menu?.kind === "slash" && (
         <div
           className="absolute z-10 w-72 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
           style={{ top: menu.top, left: menu.left }}
@@ -242,12 +298,32 @@ export function NoteBodyEditor({
             // textarea-based menu used.
             onMouseDown={(e) => {
               e.preventDefault();
-              if (viewRef.current) selectCommand(viewRef.current, menu);
+              if (viewRef.current) selectSlashCommand(viewRef.current, menu);
             }}
           >
             <span className="font-medium">{menu.command.label}</span>
             <span className="text-xs text-muted-foreground">{menu.command.hint}</span>
           </button>
+        </div>
+      )}
+      {menu?.kind === "wikilink" && (
+        <div
+          className="absolute z-10 w-64 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
+          style={{ top: menu.top, left: menu.left }}
+        >
+          {menu.candidates.map((candidate) => (
+            <button
+              key={candidate.id}
+              type="button"
+              className="block w-full truncate rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                if (viewRef.current) selectWikilinkCandidate(viewRef.current, menu, candidate);
+              }}
+            >
+              {candidate.title}
+            </button>
+          ))}
         </div>
       )}
     </div>

@@ -50,6 +50,18 @@ export async function createNote(folderId: string | null) {
   redirect(`/notes/${result.noteId}`);
 }
 
+// Unlike createNote, this returns the result instead of redirect()-ing --
+// the caller is a click handler on a broken-wikilink widget that needs to
+// await the id and navigate itself.
+export async function createNoteFromWikilink(title: string): Promise<InsertNoteResult> {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return { ok: false, noteId: null, error: "Not signed in." };
+
+  const result = await insertNoteCore(supabase, userId, { folderId: null, title, bodyMarkdown: "" });
+  if (result.ok) revalidatePath("/notes");
+  return result;
+}
+
 export async function deleteNote(noteId: string) {
   const { supabase, userId } = await currentUserId();
   if (!userId) return;

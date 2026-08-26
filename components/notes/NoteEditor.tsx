@@ -2,18 +2,22 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { format, formatDistanceToNow } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TagPicker } from "@/components/tags/TagPicker";
 import { LinkedTasksPicker } from "@/components/notes/LinkedTasksPicker";
 import { NoteBodyEditor } from "@/components/notes/NoteBodyEditor";
-import { saveNote } from "@/lib/actions/notes";
+import type { WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
+import { saveNote, createNoteFromWikilink } from "@/lib/actions/notes";
+import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Note = Database["public"]["Tables"]["notes"]["Row"];
 type Tag = Database["public"]["Tables"]["tags"]["Row"];
 type TaskOption = { id: string; title: string; completed_at: string | null; due_at: string | null };
+type Backlink = { id: string; title: string };
 
 export function NoteEditor({
   note,
@@ -21,12 +25,16 @@ export function NoteEditor({
   assignedTags,
   allTasks,
   linkedTasks,
+  allNoteTitles,
+  backlinks,
 }: {
   note: Note;
   allTags: Tag[];
   assignedTags: Tag[];
   allTasks: TaskOption[];
   linkedTasks: TaskOption[];
+  allNoteTitles: WikilinkCandidate[];
+  backlinks: Backlink[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -45,6 +53,17 @@ export function NoteEditor({
       setDirty(false);
       setConflict(false);
       router.refresh();
+    });
+  }
+
+  function handleWikilinkClick(target: WikilinkTarget) {
+    if ("noteId" in target) {
+      router.push(`/notes/${target.noteId}`);
+      return;
+    }
+    startTransition(async () => {
+      const result = await createNoteFromWikilink(target.brokenTitle);
+      if (result.ok && result.noteId) router.push(`/notes/${result.noteId}`);
     });
   }
 
@@ -80,6 +99,23 @@ export function NoteEditor({
           {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}
         </p>
         <LinkedTasksPicker noteId={note.id} allTasks={allTasks} linkedTasks={linkedTasks} />
+        {backlinks.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Backlinks</span>
+            <ul className="flex flex-wrap gap-1.5">
+              {backlinks.map((backlink) => (
+                <li key={backlink.id}>
+                  <Link
+                    href={`/notes/${backlink.id}`}
+                    className="rounded-full border bg-muted px-2 py-0.5 text-xs hover:bg-accent"
+                  >
+                    {backlink.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <NoteBodyEditor
@@ -90,6 +126,8 @@ export function NoteEditor({
         }}
         placeholder={'Write in markdown... use #tags anywhere, or /task create "title" tomorrow 5pm on its own line to add a linked task'}
         className="min-h-96 w-full rounded-xl border bg-card p-3 text-sm shadow-sm outline-none focus-within:ring-3 focus-within:ring-ring/50"
+        allNoteTitles={allNoteTitles}
+        onWikilinkClick={handleWikilinkClick}
       />
 
       <div className="flex items-center gap-3">
