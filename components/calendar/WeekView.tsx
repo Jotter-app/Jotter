@@ -12,7 +12,7 @@ import { useEventDragAndDrop } from "@/lib/calendar/useEventDragAndDrop";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
-type TaskSummary = { id: string; title: string; due_at: string };
+type Task = Database["public"]["Tables"]["tasks"]["Row"] & { due_at: string };
 
 export function WeekView({
   weekDate,
@@ -23,7 +23,7 @@ export function WeekView({
 }: {
   weekDate: Date;
   events: Event[];
-  tasksWithDueDate: TaskSummary[];
+  tasksWithDueDate: Task[];
   linkedTasksById?: Map<string, LinkedTask>;
   defaultEventCreatesTask?: boolean;
 }) {

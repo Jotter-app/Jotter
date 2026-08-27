@@ -1,15 +1,15 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
-import Link from "next/link";
 import { isToday } from "date-fns";
 import { Plus } from "lucide-react";
 import { EventChip, type LinkedTask } from "@/components/calendar/EventChip";
+import { TaskChip } from "@/components/calendar/TaskChip";
 import { dayKey } from "@/lib/calendar/grid";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
-type TaskSummary = { id: string; title: string };
+type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 export function DayCell({
   date,
@@ -21,7 +21,7 @@ export function DayCell({
 }: {
   date: Date;
   events: Event[];
-  tasksDue: TaskSummary[];
+  tasksDue: Task[];
   dimmed?: boolean;
   onAddEvent: (date: Date) => void;
   linkedTasksById?: Map<string, LinkedTask>;
@@ -61,13 +61,7 @@ export function DayCell({
           />
         ))}
         {tasksDue.map((task) => (
-          <Link
-            key={task.id}
-            href="/tasks"
-            className="block truncate rounded border px-1.5 py-0.5 text-xs hover:bg-accent"
-          >
-            {task.title}
-          </Link>
+          <TaskChip key={task.id} task={task} />
         ))}
       </div>
     </div>

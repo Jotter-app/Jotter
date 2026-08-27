@@ -111,7 +111,9 @@ export async function toggleTaskComplete(taskId: string, completed: boolean, due
   // still has a due date.
   await syncTaskReminder(supabase, userId, taskId, completed ? null : dueAt);
 
+  // Reachable from both the Tasks page and a calendar task chip.
   revalidatePath("/tasks");
+  revalidatePath("/calendar");
 }
 
 export async function deleteTask(taskId: string) {
@@ -120,6 +122,7 @@ export async function deleteTask(taskId: string) {
 
   await supabase.from("tasks").delete().eq("id", taskId);
   revalidatePath("/tasks");
+  revalidatePath("/calendar");
 }
 
 const updateTaskSchema = z.object({
@@ -189,5 +192,6 @@ export async function updateTask(formData: FormData): Promise<UpdateTaskResult> 
   await syncTaskReminder(supabase, userId, parsed.data.id, dueAt);
 
   revalidatePath("/tasks");
+  revalidatePath("/calendar");
   return { ok: true, conflict: false, updatedAt: updated.updated_at };
 }

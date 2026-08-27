@@ -2,7 +2,6 @@ import { dayKey } from "@/lib/calendar/grid";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
-type TaskSummary = { id: string; title: string; due_at: string };
 
 export function groupEventsByDay(events: Event[]): Map<string, Event[]> {
   const map = new Map<string, Event[]>();
@@ -15,8 +14,12 @@ export function groupEventsByDay(events: Event[]): Map<string, Event[]> {
   return map;
 }
 
-export function groupTasksByDay(tasks: TaskSummary[]): Map<string, TaskSummary[]> {
-  const map = new Map<string, TaskSummary[]>();
+// Generic over whatever task shape the caller has on hand, rather than a
+// single fixed summary type -- callers get back exactly the type they put
+// in (a full task row, needed by TaskChip for edit/delete), no
+// widening/narrowing at the call site.
+export function groupTasksByDay<T extends { due_at: string }>(tasks: T[]): Map<string, T[]> {
+  const map = new Map<string, T[]>();
   for (const task of tasks) {
     const key = dayKey(new Date(task.due_at));
     const existing = map.get(key) ?? [];

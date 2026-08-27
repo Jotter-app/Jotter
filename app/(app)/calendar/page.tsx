@@ -17,6 +17,9 @@ import { WeekView } from "@/components/calendar/WeekView";
 import { Button } from "@/components/ui/button";
 import { getDefaultEventCreatesTask } from "@/lib/actions/settings";
 import type { LinkedTask } from "@/components/calendar/EventChip";
+import type { Database } from "@/lib/supabase/database.types";
+
+type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
 function parseAnchorDate(value: string | undefined): Date {
   if (!value) return new Date();
@@ -41,7 +44,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
       .gte("end_at", rangeStart.toISOString()),
     supabase
       .from("tasks")
-      .select("id, title, due_at")
+      .select()
       .not("due_at", "is", null)
       .is("completed_at", null)
       .gte("due_at", rangeStart.toISOString())
@@ -62,7 +65,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   // -- showing it again in the plain tasks-due list would duplicate it in
   // the day cell.
   const tasksWithDueDate = (tasks ?? [])
-    .filter((t): t is { id: string; title: string; due_at: string } => t.due_at !== null)
+    .filter((t): t is Task & { due_at: string } => t.due_at !== null)
     .filter((t) => !linkedTaskIds.includes(t.id));
 
   const prevAnchor = view === "month" ? subMonths(anchorDate, 1) : subWeeks(anchorDate, 1);
