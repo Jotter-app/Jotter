@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus } from "l
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FolderDeleteDialog } from "@/components/notes/FolderDeleteDialog";
+import { ExportLink } from "@/components/notes/ExportLink";
 import { createFolder, renameFolder, moveFolder } from "@/lib/actions/folders";
 import { createNote, deleteNote, moveNote } from "@/lib/actions/notes";
 import { countNotesInSubtree, flattenForPicker, type FolderNode } from "@/lib/notes/tree";
@@ -93,6 +94,8 @@ function FolderRow({ node, depth, allFolders }: { node: FolderNode; depth: numbe
         )}
 
         <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 has-[:focus]:opacity-100">
+          <ExportLink scope={{ type: "folder", id: node.id }} />
+
           <select
             className="rounded border bg-transparent text-xs text-muted-foreground"
             value=""
@@ -162,6 +165,8 @@ function NoteRow({
         {note.title || "Untitled"}
       </Link>
       <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 has-[:focus]:opacity-100">
+        <ExportLink scope={{ type: "note", id: note.id }} />
+
         <select
           className="rounded border bg-transparent text-xs text-muted-foreground"
           value=""
