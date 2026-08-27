@@ -6,6 +6,23 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
 import type { Database } from "@/lib/supabase/database.types";
 
+// Core logic factored out (same seam as deleteFolderCore) so it's callable
+// directly from import's folder-path resolution and from integration
+// tests, neither of which can go through currentUserId().
+export async function createFolderCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  { name, parentFolderId }: { name: string; parentFolderId: string | null }
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("folders")
+    .insert({ user_id: userId, name, parent_folder_id: parentFolderId })
+    .select("id")
+    .single();
+  if (error || !data) return null;
+  return data.id;
+}
+
 export async function createFolder(name: string, parentFolderId: string | null) {
   const trimmed = name.trim();
   if (!trimmed) return;
@@ -13,11 +30,7 @@ export async function createFolder(name: string, parentFolderId: string | null) 
   const { supabase, userId } = await currentUserId();
   if (!userId) return;
 
-  await supabase.from("folders").insert({
-    user_id: userId,
-    name: trimmed,
-    parent_folder_id: parentFolderId,
-  });
+  await createFolderCore(supabase, userId, { name: trimmed, parentFolderId });
 
   revalidatePath("/notes");
 }
