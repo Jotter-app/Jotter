@@ -5,11 +5,19 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { importNotes } from "@/lib/actions/noteImport";
 
+// The upload itself (a zip's raw bytes, attachments included even though
+// they're discarded server-side) can exceed the Server Action body-size
+// limit before importNotes ever runs -- that fails as a framework-level
+// request error, not a normal returned result, so it needs its own catch
+// here rather than an `ok: false` branch.
+const UPLOAD_FAILED_MESSAGE =
+  "Import failed -- the upload didn't go through. If the file is very large, try a smaller batch or split it into multiple zips.";
+
 export function ImportNotesButton() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   function handleFilesSelected(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -18,13 +26,20 @@ export function ImportNotesButton() {
     for (const file of files) formData.append("files", file);
 
     startTransition(async () => {
-      const result = await importNotes(formData);
-      if (!result.ok) {
-        setMessage(result.error ?? "Import failed.");
-        return;
+      try {
+        const outcome = await importNotes(formData);
+        if (!outcome.ok) {
+          setResult({ ok: false, text: outcome.error ?? "Import failed." });
+          return;
+        }
+        setResult({
+          ok: true,
+          text: outcome.imported === 1 ? "Imported 1 note." : `Imported ${outcome.imported} notes.`,
+        });
+        router.refresh();
+      } catch {
+        setResult({ ok: false, text: UPLOAD_FAILED_MESSAGE });
       }
-      setMessage(result.imported === 1 ? "Imported 1 note." : `Imported ${result.imported} notes.`);
-      router.refresh();
     });
 
     // Lets the same file(s) be re-selected later without the browser
@@ -51,7 +66,9 @@ export function ImportNotesButton() {
       >
         {isPending ? "Importing..." : "Import"}
       </Button>
-      {message && <span className="text-xs text-muted-foreground">{message}</span>}
+      {result && (
+        <span className={`text-xs ${result.ok ? "text-muted-foreground" : "text-destructive"}`}>{result.text}</span>
+      )}
     </div>
   );
 }
