@@ -123,8 +123,11 @@ async function buildZipExport(
   } else {
     const target = findFolderNode(roots, scope.id);
     if (!target) return null;
-    addFolderToZip(zip, target.notes, target.children, noteById, tagsByNoteId, "");
     zipLabel = sanitizeFilename(target.name);
+    // The exported folder's own name becomes the zip's top-level directory
+    // (not just its subfolders') -- so re-importing this zip recreates the
+    // same folder rather than dropping its notes at root.
+    addFolderToZip(zip, target.notes, target.children, noteById, tagsByNoteId, `${zipLabel}/`);
   }
 
   const data = await zip.generateAsync({ type: "nodebuffer" });

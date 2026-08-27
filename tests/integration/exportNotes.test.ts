@@ -104,9 +104,9 @@ describe("buildNotesExport", () => {
 
       const zip = await JSZip.loadAsync(result!.data);
       const paths = filePaths(zip);
-      expect(paths).toEqual(["Projects/Nested.md", "Top Level.md"]);
+      expect(paths).toEqual(["Work/Projects/Nested.md", "Work/Top Level.md"]);
 
-      const nestedContent = await zip.file("Projects/Nested.md")!.async("string");
+      const nestedContent = await zip.file("Work/Projects/Nested.md")!.async("string");
       const { body } = parseNoteFile(nestedContent, "fallback");
       expect(body).toBe("nested body");
     });
@@ -126,7 +126,7 @@ describe("buildNotesExport", () => {
 
       const result = await buildNotesExport(user.client, user.userId, { type: "folder", id: folder });
       const zip = await JSZip.loadAsync(result!.data);
-      expect(filePaths(zip)).toEqual(["Same Title-2.md", "Same Title.md"]);
+      expect(filePaths(zip)).toEqual(["Dupes/Same Title-2.md", "Dupes/Same Title.md"]);
     });
   });
 

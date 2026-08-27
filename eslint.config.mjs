@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Deno runtime, not part of this Next.js/Node TypeScript project.
     "supabase/functions/**",
+    // Local `supabase start` artifacts (gitignored, machine-generated).
+    "supabase/.temp/**",
   ]),
 ]);
 
