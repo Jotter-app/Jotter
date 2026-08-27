@@ -5,11 +5,11 @@
 
 ## Summary
 
-Tags are a single per-user vocabulary shared between notes and tasks (one `tags` row, attached to either via the polymorphic `taggables` join). As note-tagging grows, note-only tags increasingly clutter the Tasks page's tag filter row and per-task tag picker, even though they're never relevant there. This adds an opt-in setting that hides any tag not currently attached to at least one task from the Tasks page entirely, so the two views can develop separate-feeling tag vocabularies. A companion tags section on the Notes page gives note tags their own home and their own delete affordance, so hiding a tag from Tasks never leaves it unmanageable.
+Tags are a single per-user vocabulary shared between notes and tasks (one `tags` row, attached to either via the polymorphic `taggables` join). As note-tagging grows, note-only tags increasingly clutter the Tasks page's tag filter row and per-task tag picker, even though they're never relevant there. This adds a setting, on by default, that hides any tag not currently attached to at least one task from the Tasks page entirely, so the two views develop separate-feeling tag vocabularies from the start. A companion tags section on the Notes page gives note tags their own home and their own delete affordance, so hiding a tag from Tasks never leaves it unmanageable.
 
 ## Goals
 
-- A per-user setting, off by default, that — when on — hides from the Tasks page any tag with zero current task attachments.
+- A per-user setting, on by default, that — when on — hides from the Tasks page any tag with zero current task attachments.
 - Hiding applies to both the tag-filter pill row and each task's "+ tag" picker suggestions, so note tags stop surfacing anywhere in the Tasks-tagging flow, not just the passive list.
 - A new collapsed-by-default tags section at the top of the Notes page, listing every tag currently attached to at least one note, each deletable from there.
 - A tag can always be fully deleted from wherever it's currently visible (Tasks page when task-attached, Notes page when note-attached) — hiding a tag from Tasks never strands it without a delete path.
@@ -25,7 +25,7 @@ Tags are a single per-user vocabulary shared between notes and tasks (one `tags`
 
 | | Mechanism | Why |
 |---|---|---|
-| Setting storage | New `profiles.hide_note_only_tags_from_tasks boolean not null default false` column, via migration | Mirrors the existing `default_event_creates_task` column on the same table exactly — same per-user settings row, same upsert-on-write pattern. |
+| Setting storage | New `profiles.hide_note_only_tags_from_tasks boolean not null default true` column, via migration | Same table/upsert pattern as `default_event_creates_task`, but defaults `true` (per product decision) rather than that column's `false` — Postgres backfills existing rows with the column default too, so existing users get the hiding behavior on their next Tasks page load, same as new users. |
 | Setting read/write | `lib/actions/settings.ts`: `getHideNoteOnlyTagsCore`/`getHideNoteOnlyTags`/`updateHideNoteOnlyTags` | Copies `getDefaultEventCreatesTaskCore`/`getDefaultEventCreatesTask`/`updateDefaultEventCreatesTask`'s exact core/wrapper shape. |
 | Settings UI | New `components/settings/HideNoteOnlyTagsToggle.tsx`, added to `app/(app)/settings/page.tsx` | Copies `DefaultEventCreatesTaskToggle`'s exact shape (checkbox + label + helper text, optimistic local state, upsert on change). |
 | Tasks-page filtering | `app/(app)/tasks/page.tsx` computes the set of tag IDs with ≥1 `taggable_type: "task"` row from the `taggables` query it already fetches — no new query. When the setting is on, `allTags` is filtered to that set before being passed to `TagFilterRow` and each `TaskRow`. | The task-scoped `taggables` join is already fetched today (for `tagsByTaskId`); deriving the "has ≥1 task attachment" set from it is free. Filtering the one `allTags` variable that feeds both the filter row and every `TaskRow`'s `TagPicker` covers both surfaces with one change. |
@@ -35,7 +35,7 @@ No changes to `tags`, `taggables`, or any server action beyond the new settings 
 
 ## Feature Scope
 
-**1. Settings toggle** — label "Hide tags that aren't used on any task", helper text "When on, a tag only shows up on the Tasks page once it's actually attached to a task -- note-only tags stay out of the way there (they're still manageable from the Notes page)." Default off, in Settings next to the existing event/task toggle.
+**1. Settings toggle** — label "Hide tags that aren't used on any task", helper text "When on, a tag only shows up on the Tasks page once it's actually attached to a task -- note-only tags stay out of the way there (they're still manageable from the Notes page)." Default **on**, in Settings next to the existing event/task toggle.
 
 **2. Tasks page** — when the setting is on: a tag with zero `taggable_type: "task"` rows is excluded from both `TagFilterRow`'s pills and every `TagPicker`'s suggestion list on that page. Typing a hidden tag's exact name into a task's "+ tag" picker still works (via `findOrCreateTag`'s find-or-create semantics) — it reuses the existing tag rather than erroring or creating a duplicate; it just won't appear as a suggestion.
 
@@ -51,4 +51,4 @@ No changes to `tags`, `taggables`, or any server action beyond the new settings 
 ## Testing Approach
 
 - **Unit/integration tests**: `getHideNoteOnlyTagsCore`/`updateHideNoteOnlyTagsCore` (read default, round-trip write, upsert-creates-row-if-missing, mirroring the existing settings tests if any exist for the event-creates-task setting). Tasks-page tag-filtering logic covered as a small pure function if extracted, or via an integration-style check that a note-only tag's id is excluded from the filtered set.
-- **Manual verification**: create a note-only tag and a task-only tag; confirm the note-only tag appears in the Tasks filter row and task tag-picker before the setting is on, and disappears from both after turning it on; confirm it's still visible and deletable from the new Notes tags section while hidden from Tasks; confirm deleting it there removes it from the note it was attached to and (if re-enabled) from Tasks too; confirm a tag attached to both a note and a task remains visible in both places regardless of the setting.
+- **Manual verification**: on a fresh/existing account (setting on by default), create a note-only tag and confirm it does *not* appear in the Tasks filter row or any task's tag-picker suggestions, but does appear (and is deletable) in the new Notes tags section; turn the setting off in Settings and confirm the same tag now appears on the Tasks page too; turn it back on and confirm it's hidden again; confirm deleting the tag from the Notes section removes it from the note it was attached to and from the Tasks page if later re-enabled; confirm a tag attached to both a note and a task remains visible in both places regardless of the setting.
