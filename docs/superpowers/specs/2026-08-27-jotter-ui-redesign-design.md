@@ -1,6 +1,6 @@
 # Jotter UI Redesign ("Organic") — Design Spec
 
-**Date:** 2026-08-27
+**Date:** 2026-08-27 (amended same day during implementation planning — see Addendum)
 **Status:** Approved for planning
 
 ## Summary
@@ -19,7 +19,7 @@ The mockups (and the two draft extensions produced during this design session �
 
 ## Non-Goals
 
-- No new features, no schema/migration changes, no changes to any server action or route.
+- No new features, no schema/migration changes, no changes to any server action or route. **Exception:** the Notes phase — see Addendum — adds a new route and new UI structure (still no schema changes) per an explicit scope decision made during implementation planning.
 - No change to test IDs, ARIA roles, or DOM structure beyond what's needed to apply new classes — the existing Playwright/Vitest suites don't assert on Tailwind classes or colors (confirmed by search), so no test rewrites are expected, but each phase still gets a manual + existing-suite pass.
 - Not replacing shadcn/ui with a custom component library. The mockups' literal `.btn`/`.card`/`.tag` CSS classes are a reference for *how things should look*, not literal code to port in.
 - Not designing a separate native mobile app shell — the bottom tab bar is added chrome within the same responsive Next.js app, not a new architecture.
@@ -63,7 +63,7 @@ Every component in `components/ui/` (`Button`, `Input`, `Checkbox`, `Dialog`, `S
 |---|---|
 | **Global chrome** (`AppLayout`, `TopNav`) | Header reskinned in place — cream ground, terracotta active pill (already the existing active-state pattern in `TopNav`, just recolored), Caprasimo brand mark. Unchanged structurally on desktop/tablet widths. |
 | **Mobile nav** (new) | Below the existing responsive breakpoint where `TopNav` labels already hide, add a fixed bottom tab bar (Tasks/Notes/Calendar, icon + label, terracotta-tinted pill on the active tab) in place of the icon-only top nav. Search, theme toggle, settings, and sign-out move into a `☰` overflow menu reachable from the mobile top bar, built from the existing shadcn `DropdownMenu` primitive — not a new UI primitive, not a full page. |
-| **Notes** (dashboard, editor, notebook/tag management) | Matches the original mockups directly: left sidebar (`NotesTree` — notebooks + tags) stays a sidebar, reskinned; the note editor's markdown chrome and `/task` callout box match the mocked editor; the pillar switcher (Tasks/Notes/Calendar pills shown in the mockup's sidebar) is **not** duplicated there — it stays in the existing top header, since that's already the app's actual switcher and the sidebar is Notes-internal navigation. |
+| **Notes** (dashboard, editor, notebook/tag management) | **Full structural match, per the Addendum** — not just a reskin. New sidebar (replacing the current inline tree card) + card-grid dashboard + a new `/notes/manage` page + editor chrome (breadcrumb, share, formatting toolbar, footer status). The pillar switcher (Tasks/Notes/Calendar pills shown in the mockup's sidebar) is **not** duplicated there — it stays in the existing top header, since that's already the app's actual switcher and the sidebar is Notes-internal navigation. |
 | **Tasks** | Per the drafted mockup: due-date-grouped sections become rounded cards (matching the accent/urgency dot Tasks already uses, recolored — overdue gets a solid terracotta pill rather than just a dot, for real visual urgency), circular checkboxes (unchecked outline → filled terracotta with a check mark), pill tag filter row, quick-add as a full pill input. |
 | **Calendar** (month + week) | Per the drafted mockup: the hairline `bg-border` grid is replaced with separated rounded day cells; calendar events are sage pills, tasks-due are small terracotta-dot rows (preserves the existing event-vs-task visual distinction, just re-skinned); "today" gets a filled terracotta circle on the date number plus a tinted cell background. |
 | **Settings** | Per the drafted mockup: each toggle becomes a rounded card with a pill switch (terracotta track when on) instead of a bare shadcn checkbox; copy is unchanged. |
@@ -99,3 +99,17 @@ Each phase is its own commit/PR, independently reviewable and shippable, per the
 - **Automated**: existing Vitest unit/integration and Playwright e2e suites should pass unmodified per phase — none assert on Tailwind classes or specific colors (confirmed by search), only on text/role/behavior. Run the full suite after each phase as a regression check, not because this spec expects failures.
 - **Manual, per phase**: visual pass in both light and dark mode, and at both a desktop and a mobile viewport width, using the actual browser (not just a static mockup) — check contrast (the system's own guidance notes the accent-to-ground pair is only tuned to ~3:1, sufficient for chrome/icons but not body text, so body-copy-on-accent needs a deep ramp step like `--color-accent-700`, not the base accent), hover/pressed/focus-visible states, and that no layout regresses at the breakpoint where the bottom nav takes over from the top nav.
 - **No new visual-regression tooling** is introduced — manual verification per phase matches how this project has shipped every prior feature.
+
+## Addendum (2026-08-27, during implementation planning)
+
+Grounding this spec in the actual Notes code (`app/(app)/notes/page.tsx`, `components/notes/NotesTree.tsx`, `components/notes/NoteEditor.tsx`) surfaced that Notes is structurally different from its mockups today: a single centered column with an inline nested folder/note tree, no sidebar, no card grid, no management page; the editor is a plain form (title, tags, body, explicit Save button) with none of the mockup's breadcrumb/star/share/footer-toolbar chrome. Asked directly, the decision was **full structural match** — build the sidebar, card-grid dashboard, notebook/tag management page, and editor chrome, not just re-theme the current layout. This is the one place in the redesign that adds real UI structure (and one new route, `/notes/manage`) rather than purely re-skinning what exists.
+
+That, in turn, surfaced a few places where the mockups imply data the schema doesn't have. Each is resolved to avoid a schema change, since none of this was an explicit ask:
+
+- **Notebook icon/color circles** (mockup shows a colored circle per notebook) — no `folders.color`/`icon` column exists. Resolved as a deterministic color computed from the folder id (fixed rotation across the accent-2/neutral ramps) with one generic notebook icon — not user-customizable, not stored.
+- **Notebook drag-to-reorder** (a "⠿ drag" affordance in the mockup's management screen) — no `folders.sort_order` column exists. Dropped; folders stay alphabetically sorted, as today.
+- **Note pinning/star** — no `notes.pinned` column exists. Dropped; the star renders as a static, non-functional icon matching the mockup's look, not wired to anything.
+- **Tag pill colors** — `tags.color` already exists and is already read dynamically by `TagPicker`/`TagFilterRow`, but every real tag is the DB default gray (`#6b7280`) today since no color-picker UI has ever existed; rendering the literal stored color would make every pill uniformly gray, unlike the mockup. Resolved by rendering all tag pills with the Organic outline style regardless of the stored value — the column and its plumbing are untouched, only the rendering ignores it.
+- **`events.calendar_color`** — same situation, no color picker exists in `AddEventDialog`. Resolved by changing the one default-color constant `lib/actions/events.ts` uses to the sage token; `EventChip`'s existing solid-fill style (already visually distinct from `TaskChip`'s outline style) is unchanged otherwise.
+
+The full implementation plan (phasing, file-by-file breakdown) lives in the session that produced it, not duplicated here — this addendum exists so the spec doesn't silently disagree with what actually gets built.
