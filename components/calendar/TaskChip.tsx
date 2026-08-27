@@ -41,11 +41,12 @@ export function TaskChip({ task }: { task: Task }) {
         render={
           <button
             type="button"
-            className={`block w-full truncate rounded border px-1.5 py-0.5 text-left text-xs hover:bg-accent ${completed ? "text-muted-foreground line-through" : ""}`}
+            className={`flex w-full items-center gap-1.5 truncate rounded-full px-1.5 py-0.5 text-left text-xs hover:bg-accent/60 ${completed ? "text-muted-foreground line-through" : "text-accent-700"}`}
           />
         }
       >
-        {task.title}
+        {!completed && <span className="size-1.5 shrink-0 rounded-full bg-accent" />}
+        <span className="truncate">{task.title}</span>
       </PopoverTrigger>
       <PopoverContent className="w-72">
         {editing ? (

@@ -33,7 +33,7 @@ export function EventChip({ event, linkedTask }: { event: Event; linkedTask?: Li
             data-testid="event-chip"
             data-event-id={event.id}
             style={{ ...style, backgroundColor: event.calendar_color }}
-            className={`block w-full truncate rounded px-1.5 py-0.5 text-left text-xs text-white ${isDragging ? "opacity-50" : ""}`}
+            className={`block w-full truncate rounded-full px-2 py-0.5 text-left text-xs text-white ${isDragging ? "opacity-50" : ""}`}
             {...listeners}
             {...attributes}
           />

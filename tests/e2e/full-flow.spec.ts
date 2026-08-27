@@ -32,7 +32,11 @@ test("sign up, create a nested note, quick-add a task, drag a calendar event, an
     await page.getByRole("button", { name: "folder" }).click();
     await page.getByPlaceholder("Folder name").fill("E2E Folder");
     await page.getByRole("button", { name: "Create" }).click();
-    await expect(page.getByText("E2E Folder")).toBeVisible();
+    // The redesigned Notes page also shows the notebook name as a dashboard
+    // section heading, so plain text is no longer unique -- the sidebar
+    // tree's folder button is what the next step (its nested "+ note" row)
+    // actually depends on existing.
+    await expect(page.getByRole("button", { name: "E2E Folder" })).toBeVisible();
 
     // The folder starts expanded and renders its own "+ note" row before the
     // root-level one, so .first() targets the note button nested inside it.
