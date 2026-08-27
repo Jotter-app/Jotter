@@ -2,6 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { QuickAddBar } from "@/components/tasks/QuickAddBar";
 import { TaskRow } from "@/components/tasks/TaskRow";
+import { ArchivedTaskRow } from "@/components/tasks/ArchivedTaskRow";
+import { ArchiveCompletedButton } from "@/components/tasks/ArchiveCompletedButton";
 import { TagFilterRow } from "@/components/tags/TagFilterRow";
 import { groupTasksByDueDate } from "@/lib/tasks/groupTasksByDueDate";
 
@@ -45,7 +47,8 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   }
 
   const active = rows.filter((t) => t.completed_at === null);
-  const completed = rows.filter((t) => t.completed_at !== null);
+  const completed = rows.filter((t) => t.completed_at !== null && t.archived_at === null);
+  const archived = rows.filter((t) => t.archived_at !== null);
 
   const { overdue, today, thisWeek, nextWeek, thisMonth, laterCount, noDueDate } = groupTasksByDueDate(active);
 
@@ -114,12 +117,13 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
 
       {completed.length > 0 && (
         <details className="group rounded-xl border bg-card p-4 shadow-sm">
-          <summary className="cursor-pointer text-sm font-medium text-muted-foreground marker:content-none">
+          <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-muted-foreground marker:content-none">
             <span className="inline-flex items-center gap-1.5">
               <span className="transition-transform group-open:rotate-90">&rsaquo;</span>
               Completed
               <span className="font-normal">{completed.length}</span>
             </span>
+            <ArchiveCompletedButton />
           </summary>
           <ul className="mt-3 flex flex-col gap-2">
             {completed.map((task) => (
@@ -131,6 +135,23 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
                 allNotes={allNotes ?? []}
                 linkedNotes={linkedNotesByTaskId.get(task.id) ?? []}
               />
+            ))}
+          </ul>
+        </details>
+      )}
+
+      {archived.length > 0 && (
+        <details className="group rounded-xl border bg-card p-4 shadow-sm">
+          <summary className="cursor-pointer text-sm font-medium text-muted-foreground marker:content-none">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="transition-transform group-open:rotate-90">&rsaquo;</span>
+              Archived
+              <span className="font-normal">{archived.length}</span>
+            </span>
+          </summary>
+          <ul className="mt-3 flex flex-col gap-2">
+            {archived.map((task) => (
+              <ArchivedTaskRow key={`${task.id}-${task.updated_at}`} task={task} />
             ))}
           </ul>
         </details>

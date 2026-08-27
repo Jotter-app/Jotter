@@ -5,7 +5,8 @@ import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { priorityColor, priorityLabel } from "@/lib/tasks/priority";
 import { formatRelativeDays } from "@/lib/dates/relativeDays";
-import { deleteTask, toggleTaskComplete } from "@/lib/actions/tasks";
+import { archiveTask, deleteTask, toggleTaskComplete } from "@/lib/actions/tasks";
+import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
 import { TagPicker } from "@/components/tags/TagPicker";
 import { LinkedNotesPicker } from "@/components/tasks/LinkedNotesPicker";
@@ -42,6 +43,10 @@ export function TaskRow({
     startTransition(() => deleteTask(task.id));
   }
 
+  function handleArchive() {
+    startTransition(() => archiveTask(task.id));
+  }
+
   if (editing) {
     return (
       <li className="flex flex-col gap-2 rounded-lg border bg-background p-3 shadow-sm">
@@ -71,6 +76,11 @@ export function TaskRow({
           <span className="whitespace-nowrap text-xs text-muted-foreground">
             {formatRelativeDays(new Date(task.due_at))} &middot; {format(new Date(task.due_at), "MMM d, h:mm a")}
           </span>
+        )}
+        {completed && (
+          <Button size="sm" variant="ghost" onClick={handleArchive} disabled={isPending}>
+            Archive
+          </Button>
         )}
         <ConfirmDeleteButton
           title={`Delete "${task.title}"?`}

@@ -101,10 +101,15 @@ export async function toggleTaskComplete(taskId: string, completed: boolean, due
   const { supabase, userId } = await currentUserId();
   if (!userId) return;
 
-  await supabase
-    .from("tasks")
-    .update({ completed_at: completed ? new Date().toISOString() : null })
-    .eq("id", taskId);
+  const updates: { completed_at: string | null; archived_at?: null } = {
+    completed_at: completed ? new Date().toISOString() : null,
+  };
+  // Un-completing also un-archives -- "active but archived" isn't a state
+  // that should be reachable, so unchecking an archived task's checkbox is
+  // what moves it back to the normal active list in one step.
+  if (!completed) updates.archived_at = null;
+
+  await supabase.from("tasks").update(updates).eq("id", taskId);
 
   // Completing a task cancels its pending reminder (no point being told
   // about something already done); un-completing restores it if the task
@@ -123,6 +128,37 @@ export async function deleteTask(taskId: string) {
   await supabase.from("tasks").delete().eq("id", taskId);
   revalidatePath("/tasks");
   revalidatePath("/calendar");
+}
+
+export async function archiveTask(taskId: string) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return;
+
+  await supabase.from("tasks").update({ archived_at: new Date().toISOString() }).eq("id", taskId);
+  revalidatePath("/tasks");
+}
+
+export async function unarchiveTask(taskId: string) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return;
+
+  await supabase.from("tasks").update({ archived_at: null }).eq("id", taskId);
+  revalidatePath("/tasks");
+}
+
+// Clears the whole Completed section at once -- everything currently
+// completed and not yet archived, for this user.
+export async function archiveAllCompletedTasks() {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return;
+
+  await supabase
+    .from("tasks")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .not("completed_at", "is", null)
+    .is("archived_at", null);
+  revalidatePath("/tasks");
 }
 
 const updateTaskSchema = z.object({
