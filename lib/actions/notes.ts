@@ -14,6 +14,13 @@ export interface InsertNoteParams {
   folderId: string | null;
   title: string;
   bodyMarkdown: string;
+  // Only set by note import, to restore a note's original timestamps from
+  // its exported frontmatter -- every other caller omits these and gets
+  // the table's own now() defaults. Safe to pass through on insert (unlike
+  // an update) since notes_set_updated_at is a `before update` trigger,
+  // not `before insert`.
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface InsertNoteResult {
@@ -27,11 +34,18 @@ export interface InsertNoteResult {
 export async function insertNoteCore(
   supabase: SupabaseClient<Database>,
   userId: string,
-  { folderId, title, bodyMarkdown }: InsertNoteParams
+  { folderId, title, bodyMarkdown, createdAt, updatedAt }: InsertNoteParams
 ): Promise<InsertNoteResult> {
   const { data, error } = await supabase
     .from("notes")
-    .insert({ user_id: userId, folder_id: folderId, title, body_markdown: bodyMarkdown })
+    .insert({
+      user_id: userId,
+      folder_id: folderId,
+      title,
+      body_markdown: bodyMarkdown,
+      ...(createdAt ? { created_at: createdAt } : {}),
+      ...(updatedAt ? { updated_at: updatedAt } : {}),
+    })
     .select("id")
     .single();
   if (error || !data) {
