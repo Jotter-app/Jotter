@@ -25,7 +25,7 @@ test("Jotter command palette: explicit linking, implicit create, and the / picke
     await page.waitForURL("**/tasks");
 
     await page.goto("/settings");
-    await page.getByRole("checkbox").click();
+    await page.getByRole("checkbox", { name: "New calendar events also create a task by default" }).click();
   });
 
   let taskDueAt: string;

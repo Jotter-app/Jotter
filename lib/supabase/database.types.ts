@@ -191,16 +191,19 @@ export type Database = {
         Row: {
           created_at: string
           default_event_creates_task: boolean
+          hide_note_only_tags_from_tasks: boolean
           user_id: string
         }
         Insert: {
           created_at?: string
           default_event_creates_task?: boolean
+          hide_note_only_tags_from_tasks?: boolean
           user_id: string
         }
         Update: {
           created_at?: string
           default_event_creates_task?: boolean
+          hide_note_only_tags_from_tasks?: boolean
           user_id?: string
         }
         Relationships: []
@@ -572,3 +575,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

@@ -6,21 +6,30 @@ import { ArchivedTaskRow } from "@/components/tasks/ArchivedTaskRow";
 import { ArchiveCompletedButton } from "@/components/tasks/ArchiveCompletedButton";
 import { TagFilterRow } from "@/components/tags/TagFilterRow";
 import { groupTasksByDueDate } from "@/lib/tasks/groupTasksByDueDate";
+import { getHideNoteOnlyTags } from "@/lib/actions/settings";
+import { filterNoteOnlyTags } from "@/lib/tags/filterNoteOnlyTags";
 
 export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   const { tag: tagFilter } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: tasks }, { data: tags }, { data: taggables }, { data: allNotes }, { data: taskNoteLinks }] =
-    await Promise.all([
-      supabase.from("tasks").select().order("due_at", { ascending: true, nullsFirst: false }),
-      supabase.from("tags").select().order("name"),
-      supabase.from("taggables").select("tag_id, taggable_id, tags(*)").eq("taggable_type", "task"),
-      supabase.from("notes").select("id, title").order("title"),
-      supabase.from("task_note_links").select("task_id, notes(id, title)"),
-    ]);
+  const [
+    { data: tasks },
+    { data: tags },
+    { data: taggables },
+    { data: allNotes },
+    { data: taskNoteLinks },
+    hideNoteOnlyTags,
+  ] = await Promise.all([
+    supabase.from("tasks").select().order("due_at", { ascending: true, nullsFirst: false }),
+    supabase.from("tags").select().order("name"),
+    supabase.from("taggables").select("tag_id, taggable_id, tags(*)").eq("taggable_type", "task"),
+    supabase.from("notes").select("id, title").order("title"),
+    supabase.from("task_note_links").select("task_id, notes(id, title)"),
+    getHideNoteOnlyTags(),
+  ]);
 
-  const allTags = tags ?? [];
+  const allTags = filterNoteOnlyTags(tags ?? [], taggables ?? [], hideNoteOnlyTags);
 
   const tagsByTaskId = new Map<string, typeof allTags>();
   for (const row of taggables ?? []) {

@@ -42,3 +42,43 @@ export async function updateDefaultEventCreatesTask(value: boolean) {
 
   revalidatePath("/settings");
 }
+
+export async function getHideNoteOnlyTagsCore(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("profiles")
+    .select("hide_note_only_tags_from_tasks")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return data?.hide_note_only_tags_from_tasks ?? true;
+}
+
+export async function getHideNoteOnlyTags(): Promise<boolean> {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return true;
+
+  return getHideNoteOnlyTagsCore(supabase, userId);
+}
+
+export async function updateHideNoteOnlyTagsCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  value: boolean
+) {
+  await supabase
+    .from("profiles")
+    .upsert({ user_id: userId, hide_note_only_tags_from_tasks: value }, { onConflict: "user_id" });
+}
+
+export async function updateHideNoteOnlyTags(value: boolean) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return;
+
+  await updateHideNoteOnlyTagsCore(supabase, userId, value);
+
+  revalidatePath("/settings");
+  revalidatePath("/tasks");
+}
