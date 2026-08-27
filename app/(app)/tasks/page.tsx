@@ -1,8 +1,9 @@
-import { startOfDay, endOfDay } from "date-fns";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { QuickAddBar } from "@/components/tasks/QuickAddBar";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import { TagFilterRow } from "@/components/tags/TagFilterRow";
+import { groupTasksByDueDate } from "@/lib/tasks/groupTasksByDueDate";
 
 export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   const { tag: tagFilter } = await searchParams;
@@ -43,26 +44,19 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     rows = rows.filter((t) => taskIdsWithTag.has(t.id));
   }
 
-  const now = new Date();
-  const todayStart = startOfDay(now);
-  const todayEnd = endOfDay(now);
-
   const active = rows.filter((t) => t.completed_at === null);
   const completed = rows.filter((t) => t.completed_at !== null);
 
-  const overdue = active.filter((t) => t.due_at && new Date(t.due_at) < todayStart);
-  const today = active.filter(
-    (t) => t.due_at && new Date(t.due_at) >= todayStart && new Date(t.due_at) <= todayEnd
-  );
-  const upcoming = active.filter((t) => t.due_at && new Date(t.due_at) > todayEnd);
-  const noDueDate = active.filter((t) => !t.due_at);
+  const { overdue, today, thisWeek, nextWeek, thisMonth, laterCount, noDueDate } = groupTasksByDueDate(active);
 
   // A restrained accent per section: overdue earns urgency (destructive),
   // today earns the app's one accent color, the rest stay neutral.
   const sections = [
     { title: "Overdue", tasks: overdue, dot: "bg-destructive", ring: "ring-destructive/20" },
     { title: "Today", tasks: today, dot: "bg-primary", ring: "ring-primary/20" },
-    { title: "Upcoming", tasks: upcoming, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
+    { title: "This Week", tasks: thisWeek, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
+    { title: "Next Week", tasks: nextWeek, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
+    { title: "This Month", tasks: thisMonth, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
     { title: "No due date", tasks: noDueDate, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
   ];
 
@@ -107,6 +101,15 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
         <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
           No tasks yet -- add one above.
         </p>
+      )}
+
+      {laterCount > 0 && (
+        <Link
+          href="/calendar"
+          className="rounded-xl border border-dashed p-3 text-center text-sm text-muted-foreground hover:text-foreground"
+        >
+          {laterCount} more {laterCount === 1 ? "task" : "tasks"} &middot; view on calendar
+        </Link>
       )}
 
       {completed.length > 0 && (
