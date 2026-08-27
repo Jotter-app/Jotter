@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format, formatDistanceToNow } from "date-fns";
+import { Bold, Italic, Heading1, ListChecks, Link2, ChevronRight, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TagPicker } from "@/components/tags/TagPicker";
 import { LinkedTasksPicker } from "@/components/notes/LinkedTasksPicker";
-import { NoteBodyEditor } from "@/components/notes/NoteBodyEditor";
+import { NoteBodyEditor, type NoteBodyEditorHandle } from "@/components/notes/NoteBodyEditor";
+import { ExportLink } from "@/components/notes/ExportLink";
+import { wrapSelection, toggleLinePrefix, insertLink } from "@/components/notes/editor/formattingCommands";
 import type { WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
 import { saveNote, createNoteFromWikilink } from "@/lib/actions/notes";
 import { toggleTaskComplete } from "@/lib/actions/tasks";
@@ -28,6 +31,7 @@ export function NoteEditor({
   linkedTasks,
   allNoteTitles,
   backlinks,
+  breadcrumb,
 }: {
   note: Note;
   allTags: Tag[];
@@ -36,6 +40,7 @@ export function NoteEditor({
   linkedTasks: TaskOption[];
   allNoteTitles: WikilinkCandidate[];
   backlinks: Backlink[];
+  breadcrumb: string[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -43,6 +48,7 @@ export function NoteEditor({
   const [body, setBody] = useState(note.body_markdown);
   const [dirty, setDirty] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const bodyEditorRef = useRef<NoteBodyEditorHandle>(null);
 
   function handleSave(force = false) {
     startTransition(async () => {
@@ -72,6 +78,11 @@ export function NoteEditor({
     });
   }
 
+  function withView(fn: (view: NonNullable<ReturnType<NoteBodyEditorHandle["getView"]>>) => void) {
+    const view = bodyEditorRef.current?.getView();
+    if (view) fn(view);
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
       {conflict && (
@@ -87,6 +98,19 @@ export function NoteEditor({
           </div>
         </div>
       )}
+
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {breadcrumb.map((segment, i) => (
+          <span key={i} className="flex items-center gap-1.5">
+            {i > 0 && <ChevronRight className="size-3" />}
+            {segment}
+          </span>
+        ))}
+        <div className="ml-auto flex items-center gap-1">
+          <Star className="size-4 text-muted-foreground" aria-hidden="true" />
+          <ExportLink scope={{ type: "note", id: note.id }} />
+        </div>
+      </div>
 
       <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
         <Input
@@ -124,6 +148,7 @@ export function NoteEditor({
       </div>
 
       <NoteBodyEditor
+        ref={bodyEditorRef}
         value={body}
         onChange={(value) => {
           setBody(value);
@@ -137,13 +162,62 @@ export function NoteEditor({
         onToggleLinkedTask={handleToggleLinkedTask}
       />
 
-      <div className="flex items-center gap-3">
-        <Button onClick={() => handleSave(false)} disabled={isPending || !dirty}>
-          {isPending ? "Saving..." : "Save"}
+      <div className="flex items-center gap-1 rounded-full border bg-card px-2 py-1.5 shadow-sm">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Bold"
+          onClick={() => withView((view) => wrapSelection(view, "**"))}
+        >
+          <Bold />
         </Button>
-        <span className="text-xs text-muted-foreground">
-          {dirty ? "Unsaved changes" : "Saved"}
-        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Italic"
+          onClick={() => withView((view) => wrapSelection(view, "*"))}
+        >
+          <Italic />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Heading"
+          onClick={() => withView((view) => toggleLinePrefix(view, "# "))}
+        >
+          <Heading1 />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Checklist"
+          onClick={() => withView((view) => toggleLinePrefix(view, "- [ ] "))}
+        >
+          <ListChecks />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Link"
+          onClick={() => withView(insertLink)}
+        >
+          <Link2 />
+        </Button>
+        <div className="ml-auto flex items-center gap-3">
+          <Button size="sm" onClick={() => handleSave(false)} disabled={isPending || !dirty}>
+            {isPending ? "Saving..." : "Save"}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            {dirty ? "Unsaved changes" : "Saved"}
+            {linkedTasks.length > 0 &&
+              ` · linked to ${linkedTasks.length} ${linkedTasks.length === 1 ? "task" : "tasks"}`}
+          </span>
+        </div>
       </div>
     </div>
   );

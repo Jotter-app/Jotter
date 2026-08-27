@@ -54,8 +54,7 @@ export function TagPicker({
       {assignedTags.map((tag) => (
         <span
           key={tag.id}
-          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs text-white"
-          style={{ backgroundColor: tag.color }}
+          className="inline-flex items-center gap-1 rounded-full border border-accent px-2 py-0.5 text-xs text-accent-700"
         >
           {tag.name}
           <button
@@ -94,7 +93,6 @@ export function TagPicker({
                     className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-accent"
                     onClick={() => handleAssign(tag.id)}
                   >
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color }} />
                     {tag.name}
                   </button>
                 </li>

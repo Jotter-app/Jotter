@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { NoteEditor } from "@/components/notes/NoteEditor";
+import { folderBreadcrumb } from "@/lib/notes/folderBreadcrumb";
 
 export default async function NotePage({ params }: PageProps<"/notes/[noteId]">) {
   const { noteId } = await params;
@@ -16,6 +17,7 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
     { data: taskNoteLinks },
     { data: allNoteTitles },
     { data: noteLinks },
+    { data: folders },
   ] = await Promise.all([
     supabase.from("notes").select().eq("id", noteId).maybeSingle(),
     supabase.from("tags").select().order("name"),
@@ -31,6 +33,7 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
       .from("note_links")
       .select("notes!note_links_source_note_id_fkey(id, title)")
       .eq("target_note_id", noteId),
+    supabase.from("folders").select("id, name, parent_folder_id"),
   ]);
 
   if (!note) {
@@ -40,6 +43,7 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
   const assignedTags = (taggables ?? []).flatMap((row) => (row.tags ? [row.tags] : []));
   const linkedTasks = (taskNoteLinks ?? []).flatMap((row) => (row.tasks ? [row.tasks] : []));
   const backlinks = (noteLinks ?? []).flatMap((row) => (row.notes ? [row.notes] : []));
+  const breadcrumb = folderBreadcrumb(folders ?? [], note.folder_id);
 
   return (
     <div className="flex w-full flex-col">
@@ -60,6 +64,7 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
         linkedTasks={linkedTasks}
         allNoteTitles={allNoteTitles ?? []}
         backlinks={backlinks}
+        breadcrumb={breadcrumb}
       />
     </div>
   );
