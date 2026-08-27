@@ -17,15 +17,12 @@ test("Jotter command palette: explicit linking, implicit create, and the / picke
   const email = `jotter-e2e-${suffix}@example.com`;
   const password = "test-password-123";
 
-  await test.step("sign up and turn on the event-creates-task default", async () => {
+  await test.step("sign up (event-creates-task default is already on for new accounts)", async () => {
     await page.goto("/signup");
     await page.locator("#email").fill(email);
     await page.locator("#password").fill(password);
     await page.getByRole("button", { name: "Sign up" }).click();
     await page.waitForURL("**/tasks");
-
-    await page.goto("/settings");
-    await page.getByRole("checkbox", { name: "New calendar events also create a task by default" }).click();
   });
 
   let taskDueAt: string;

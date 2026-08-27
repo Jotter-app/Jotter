@@ -20,12 +20,12 @@ export async function getDefaultEventCreatesTaskCore(
     .eq("user_id", userId)
     .maybeSingle();
 
-  return data?.default_event_creates_task ?? false;
+  return data?.default_event_creates_task ?? true;
 }
 
 export async function getDefaultEventCreatesTask(): Promise<boolean> {
   const { supabase, userId } = await currentUserId();
-  if (!userId) return false;
+  if (!userId) return true;
 
   return getDefaultEventCreatesTaskCore(supabase, userId);
 }

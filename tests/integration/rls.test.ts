@@ -150,7 +150,7 @@ describe("RLS cross-user isolation", () => {
   it("user B's update against user A's profile row silently affects zero rows", async () => {
     const { data, error } = await userB.client
       .from("profiles")
-      .update({ default_event_creates_task: true })
+      .update({ default_event_creates_task: false })
       .eq("user_id", userA.userId)
       .select();
     expect(error).toBeNull();
@@ -161,6 +161,6 @@ describe("RLS cross-user isolation", () => {
       .select("default_event_creates_task")
       .eq("user_id", userA.userId)
       .single();
-    expect(stillA?.default_event_creates_task).toBe(false);
+    expect(stillA?.default_event_creates_task).toBe(true);
   });
 });
