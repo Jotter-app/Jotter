@@ -40,7 +40,10 @@ export function NotesTree({ roots, rootNotes }: { roots: FolderNode[]; rootNotes
 }
 
 function FolderRow({ node, depth, allFolders }: { node: FolderNode; depth: number; allFolders: FolderNode[] }) {
-  const [expanded, setExpanded] = useState(true);
+  // Only top-level folders start expanded -- a large imported vault can be
+  // many levels deep, and expanding every folder at every depth by default
+  // buries the tree in its own contents before the user can navigate it.
+  const [expanded, setExpanded] = useState(depth === 0);
   const [renaming, setRenaming] = useState(false);
   const [name, setName] = useState(node.name);
   const [isPending, startTransition] = useTransition();
@@ -61,8 +64,13 @@ function FolderRow({ node, depth, allFolders }: { node: FolderNode; depth: numbe
   }
 
   return (
-    <div style={{ marginLeft: depth * 16 }}>
-      <div className="group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40">
+    // No margin here -- this div also wraps the recursively-rendered
+    // children below, and each of those already carries its own depth*16
+    // margin. Margin on this outer div too would compound at every level
+    // (quadratically, not linearly), eventually shoving deeply-nested
+    // rows so far right their titles render off the edge of the card.
+    <div>
+      <div className="group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40" style={{ marginLeft: depth * 16 }}>
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
