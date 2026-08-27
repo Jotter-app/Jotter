@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { updateHideNoteOnlyTags } from "@/lib/actions/settings";
 
@@ -15,13 +15,8 @@ export function HideNoteOnlyTagsToggle({ initialValue }: { initialValue: boolean
   }
 
   return (
-    <div className="flex items-start gap-3 rounded-xl border bg-card p-4 shadow-sm">
-      <Checkbox
-        id="hide-note-only-tags"
-        checked={checked}
-        onCheckedChange={(value) => handleChange(value === true)}
-        className="mt-0.5"
-      />
+    <div className="flex items-start gap-4 rounded-2xl bg-card p-4 shadow-sm">
+      <Switch id="hide-note-only-tags" checked={checked} onCheckedChange={handleChange} className="mt-0.5" />
       <div className="flex flex-col gap-1">
         <Label htmlFor="hide-note-only-tags">Hide tags that aren&apos;t used on any task</Label>
         <p className="text-xs text-muted-foreground">
