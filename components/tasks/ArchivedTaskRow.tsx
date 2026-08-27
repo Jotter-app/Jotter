@@ -34,7 +34,7 @@ export function ArchivedTaskRow({ task }: { task: Task }) {
   }
 
   return (
-    <li className="flex items-center gap-3 rounded-lg border bg-background p-3">
+    <li className="flex items-center gap-3 rounded-2xl border bg-background p-3">
       <Checkbox checked={task.completed_at !== null} onCheckedChange={handleToggle} disabled={isPending} />
       <span className="flex-1 truncate text-sm text-muted-foreground line-through">{task.title}</span>
       {task.due_at && (

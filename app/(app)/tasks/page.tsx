@@ -61,10 +61,11 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
 
   const { overdue, today, thisWeek, nextWeek, thisMonth, laterCount, noDueDate } = groupTasksByDueDate(active);
 
-  // A restrained accent per section: overdue earns urgency (destructive),
-  // today earns the app's one accent color, the rest stay neutral.
+  // A restrained accent per section: overdue earns a deeper accent shade
+  // for urgency, today earns the app's primary accent color, the rest
+  // stay neutral.
   const sections = [
-    { title: "Overdue", tasks: overdue, dot: "bg-destructive", ring: "ring-destructive/20" },
+    { title: "Overdue", tasks: overdue, dot: "bg-accent-700", ring: "ring-accent-700/20" },
     { title: "Today", tasks: today, dot: "bg-primary", ring: "ring-primary/20" },
     { title: "This Week", tasks: thisWeek, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
     { title: "Next Week", tasks: nextWeek, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
@@ -76,7 +77,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6">
       <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
 
-      <div className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm">
         <QuickAddBar />
         <TagFilterRow allTags={allTags} activeTagId={typeof tagFilter === "string" ? tagFilter : undefined} />
       </div>
@@ -86,7 +87,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
           section.tasks.length > 0 && (
             <section
               key={section.title}
-              className={`rounded-xl border bg-card p-4 shadow-sm ring-1 ${section.ring}`}
+              className={`rounded-2xl border bg-card p-4 shadow-sm ring-1 ${section.ring}`}
             >
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
                 <span className={`size-2 rounded-full ${section.dot}`} />
@@ -110,7 +111,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       )}
 
       {active.length === 0 && (
-        <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
           No tasks yet -- add one above.
         </p>
       )}
@@ -118,14 +119,14 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       {laterCount > 0 && (
         <Link
           href="/calendar"
-          className="rounded-xl border border-dashed p-3 text-center text-sm text-muted-foreground hover:text-foreground"
+          className="rounded-2xl border border-dashed p-3 text-center text-sm text-muted-foreground hover:text-foreground"
         >
           {laterCount} more {laterCount === 1 ? "task" : "tasks"} &middot; view on calendar
         </Link>
       )}
 
       {completed.length > 0 && (
-        <details className="group rounded-xl border bg-card p-4 shadow-sm">
+        <details className="group rounded-2xl border bg-card p-4 shadow-sm">
           <summary className="flex cursor-pointer items-center justify-between text-sm font-medium text-muted-foreground marker:content-none">
             <span className="inline-flex items-center gap-1.5">
               <span className="transition-transform group-open:rotate-90">&rsaquo;</span>
@@ -150,7 +151,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       )}
 
       {archived.length > 0 && (
-        <details className="group rounded-xl border bg-card p-4 shadow-sm">
+        <details className="group rounded-2xl border bg-card p-4 shadow-sm">
           <summary className="cursor-pointer text-sm font-medium text-muted-foreground marker:content-none">
             <span className="inline-flex items-center gap-1.5">
               <span className="transition-transform group-open:rotate-90">&rsaquo;</span>
