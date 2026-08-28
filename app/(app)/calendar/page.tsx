@@ -36,24 +36,34 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const rangeEnd = view === "month" ? endOfWeek(endOfMonth(anchorDate)) : endOfWeek(anchorDate);
 
   const supabase = await createClient();
-  const [{ data: events }, { data: tasks }, defaultEventCreatesTask, { data: tags }, { data: eventTaggables }] =
-    await Promise.all([
-      supabase
-        .from("events")
-        .select()
-        .lte("start_at", rangeEnd.toISOString())
-        .gte("end_at", rangeStart.toISOString()),
-      supabase
-        .from("tasks")
-        .select()
-        .not("due_at", "is", null)
-        .is("completed_at", null)
-        .gte("due_at", rangeStart.toISOString())
-        .lte("due_at", rangeEnd.toISOString()),
-      getDefaultEventCreatesTask(),
-      supabase.from("tags").select().order("name"),
-      supabase.from("taggables").select("taggable_id, tags(*)").eq("taggable_type", "event"),
-    ]);
+  const [
+    { data: events },
+    { data: tasks },
+    defaultEventCreatesTask,
+    { data: tags },
+    { data: eventTaggables },
+    { data: unscheduledTasks },
+  ] = await Promise.all([
+    supabase
+      .from("events")
+      .select()
+      .lte("start_at", rangeEnd.toISOString())
+      .gte("end_at", rangeStart.toISOString()),
+    supabase
+      .from("tasks")
+      .select()
+      .not("due_at", "is", null)
+      .is("completed_at", null)
+      .gte("due_at", rangeStart.toISOString())
+      .lte("due_at", rangeEnd.toISOString()),
+    getDefaultEventCreatesTask(),
+    supabase.from("tags").select().order("name"),
+    supabase.from("taggables").select("taggable_id, tags(*)").eq("taggable_type", "event"),
+    // Drag-to-timebox's drag source -- every not-yet-due, not-completed
+    // task, regardless of the visible date range (an unscheduled task has
+    // no due_at to fall inside or outside a range).
+    supabase.from("tasks").select().is("due_at", null).is("completed_at", null).order("created_at"),
+  ]);
 
   const tagsByEventId = new Map<string, NonNullable<typeof tags>>();
   for (const row of eventTaggables ?? []) {
@@ -131,6 +141,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           defaultEventCreatesTask={defaultEventCreatesTask}
           allTags={tags ?? []}
           tagsByEventId={tagsByEventId}
+          unscheduledTasks={unscheduledTasks ?? []}
         />
       ) : (
         <WeekView
@@ -141,6 +152,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           defaultEventCreatesTask={defaultEventCreatesTask}
           allTags={tags ?? []}
           tagsByEventId={tagsByEventId}
+          unscheduledTasks={unscheduledTasks ?? []}
         />
       )}
     </main>

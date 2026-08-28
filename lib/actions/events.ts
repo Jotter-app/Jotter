@@ -9,6 +9,7 @@ import { insertTaskCore } from "@/lib/actions/tasks";
 import { insertNoteCore } from "@/lib/actions/notes";
 import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
 import { syncEventDebriefReminder } from "@/lib/reminders/syncEventDebriefReminder";
+import { DEFAULT_EVENT_DURATION_MS } from "@/lib/jotter/duration";
 import type { Database } from "@/lib/supabase/database.types";
 
 const eventSchema = z.object({
@@ -238,6 +239,60 @@ export async function generateMeetingNote(eventId: string) {
   if (result.ok) {
     revalidatePath("/calendar");
     revalidatePath("/notes");
+  }
+  return result;
+}
+
+// Powers drag-to-timebox: dragging an unscheduled task onto a calendar day
+// creates an event linked back to it (the same events.linked_task_id
+// column insertEventCore's alsoCreateTask already uses, just populated in
+// the other direction), with a fixed 9am default start since this
+// calendar is day-granularity throughout -- there's no hour grid to drop
+// onto a specific time.
+export async function timeboxTaskCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  taskId: string,
+  date: Date
+): Promise<{ ok: boolean; eventId: string | null }> {
+  const { data: task } = await supabase.from("tasks").select("title").eq("id", taskId).single();
+  if (!task) return { ok: false, eventId: null };
+
+  const startAt = new Date(date);
+  startAt.setHours(9, 0, 0, 0);
+  const endAt = new Date(startAt.getTime() + DEFAULT_EVENT_DURATION_MS);
+
+  const { data: event, error } = await supabase
+    .from("events")
+    .insert({
+      user_id: userId,
+      title: task.title,
+      start_at: startAt.toISOString(),
+      end_at: endAt.toISOString(),
+      linked_task_id: taskId,
+    })
+    .select("id")
+    .single();
+  if (error || !event) return { ok: false, eventId: null };
+
+  // Keeps the task consistent with a linked event's due date the same way
+  // rescheduleEventCore already does on drag-reschedule -- a timeboxed
+  // task shouldn't still read "no due date" once it has a calendar block.
+  await supabase.from("tasks").update({ due_at: startAt.toISOString() }).eq("id", taskId);
+  await syncTaskReminder(supabase, userId, taskId, startAt.toISOString());
+
+  return { ok: true, eventId: event.id };
+}
+
+export async function timeboxTask(taskId: string, dateIso: string) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return { ok: false, eventId: null };
+
+  const result = await timeboxTaskCore(supabase, userId, taskId, new Date(dateIso));
+
+  if (result.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/tasks");
   }
   return result;
 }
