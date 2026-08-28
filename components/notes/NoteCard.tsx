@@ -37,8 +37,8 @@ export function NoteCard({ note }: { note: NoteCardData }) {
         </span>
         {note.starred && <Star className="ml-auto size-3.5 shrink-0 fill-accent text-accent" aria-label="Starred" />}
       </div>
-      <div className="font-heading text-[17px] leading-tight">{note.title || "Untitled"}</div>
-      <p className="line-clamp-2 flex-1 text-[13px] text-muted-foreground">{snippet(note.bodyMarkdown)}</p>
+      <div className="font-heading text-[17px] leading-tight break-words">{note.title || "Untitled"}</div>
+      <p className="line-clamp-2 flex-1 text-[13px] break-words text-muted-foreground">{snippet(note.bodyMarkdown)}</p>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
         <span>Edited {formatDistanceToNow(new Date(note.updatedAt), { addSuffix: true })}</span>
         {note.tags.map((tag) => (

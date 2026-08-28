@@ -33,10 +33,12 @@ export function NotesDashboard({
 }) {
   const [query, setQuery] = useState("");
 
-  // Always drops empty-notes groups, not just while searching -- a group
-  // that's genuinely empty (e.g. no starred notes yet) should fall through
-  // to the emptyMessage case below, not render as a bare heading with
-  // nothing underneath it.
+  // Drops a group only when it's truly empty -- no notes (after search) AND
+  // no child folders -- so a parent folder that's all subfolders and no
+  // notes of its own (e.g. "Long-Form Scripts" containing "Finished") still
+  // shows its subfolder pills instead of falling through to the
+  // emptyMessage case, which is reserved for a view with nothing to show
+  // at all (e.g. a genuinely empty "Starred").
   const filteredGroups = useMemo(() => {
     const q = query.trim().toLowerCase();
     return groups
@@ -48,7 +50,7 @@ export function NotesDashboard({
             )
           : group.notes,
       }))
-      .filter((group) => group.notes.length > 0);
+      .filter((group) => group.notes.length > 0 || group.childFolders.length > 0);
   }, [groups, query]);
 
   return (
