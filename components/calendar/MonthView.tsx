@@ -38,26 +38,22 @@ export function MonthView({
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-7 gap-px bg-border text-sm">
+      <div className="grid grid-cols-7 gap-2 text-sm">
         {WEEKDAY_LABELS.map((label) => (
-          <div
-            key={label}
-            className="bg-muted/50 p-1.5 text-center text-xs font-medium text-muted-foreground"
-          >
+          <div key={label} className="p-1.5 text-center text-xs font-medium text-muted-foreground">
             {label}
           </div>
         ))}
         {weeks.flat().map((date) => (
-          <div key={dayKey(date)} className="bg-background">
-            <DayCell
-              date={date}
-              events={eventsByDay.get(dayKey(date)) ?? []}
-              tasksDue={tasksByDay.get(dayKey(date)) ?? []}
-              dimmed={!isSameMonth(date, monthDate)}
-              onAddEvent={setAddEventDate}
-              linkedTasksById={linkedTasksById}
-            />
-          </div>
+          <DayCell
+            key={dayKey(date)}
+            date={date}
+            events={eventsByDay.get(dayKey(date)) ?? []}
+            tasksDue={tasksByDay.get(dayKey(date)) ?? []}
+            dimmed={!isSameMonth(date, monthDate)}
+            onAddEvent={setAddEventDate}
+            linkedTasksById={linkedTasksById}
+          />
         ))}
       </div>
       {addEventDate && (

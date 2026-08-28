@@ -36,25 +36,22 @@ export function WeekView({
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-7 gap-px bg-border text-sm">
+      <div className="grid grid-cols-7 gap-2 text-sm">
         {days.map((date) => (
-          <div
-            key={dayKey(date)}
-            className="bg-muted/50 p-1.5 text-center text-xs font-medium text-muted-foreground"
-          >
+          <div key={dayKey(date)} className="p-1.5 text-center text-xs font-medium text-muted-foreground">
             {format(date, "EEE d")}
           </div>
         ))}
         {days.map((date) => (
-          <div key={dayKey(date)} className="min-h-64 bg-background">
-            <DayCell
-              date={date}
-              events={eventsByDay.get(dayKey(date)) ?? []}
-              tasksDue={tasksByDay.get(dayKey(date)) ?? []}
-              onAddEvent={setAddEventDate}
-              linkedTasksById={linkedTasksById}
-            />
-          </div>
+          <DayCell
+            key={dayKey(date)}
+            date={date}
+            events={eventsByDay.get(dayKey(date)) ?? []}
+            tasksDue={tasksByDay.get(dayKey(date)) ?? []}
+            onAddEvent={setAddEventDate}
+            linkedTasksById={linkedTasksById}
+            className="min-h-64"
+          />
         ))}
       </div>
       {addEventDate && (

@@ -23,20 +23,19 @@ export function NoteTagsSection({ tags }: { tags: Tag[] }) {
   }
 
   return (
-    <details className="group rounded-xl border bg-card p-4 shadow-sm">
-      <summary className="cursor-pointer text-sm font-medium text-muted-foreground marker:content-none">
+    <details className="group">
+      <summary className="cursor-pointer text-[11px] font-semibold tracking-wide text-muted-foreground uppercase marker:content-none">
         <span className="inline-flex items-center gap-1.5">
           <span className="transition-transform group-open:rotate-90">&rsaquo;</span>
           Tags
-          <span className="font-normal">{tags.length}</span>
+          <span className="font-normal normal-case">{tags.length}</span>
         </span>
       </summary>
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {tags.map((tag) => (
           <span
             key={tag.id}
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-white"
-            style={{ backgroundColor: tag.color }}
+            className="inline-flex items-center gap-1 rounded-full border border-accent px-2 py-0.5 text-[11px] text-accent-700"
           >
             {tag.name}
             <ConfirmDeleteButton

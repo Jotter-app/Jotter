@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { format } from "date-fns";
+import { format, isPast, isToday } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { priorityColor, priorityLabel } from "@/lib/tasks/priority";
 import { formatRelativeDays } from "@/lib/dates/relativeDays";
@@ -34,6 +34,9 @@ export function TaskRow({
   const [editing, setEditing] = useState(false);
 
   const completed = task.completed_at !== null;
+  const dueDate = task.due_at ? new Date(task.due_at) : null;
+  const isOverdue = !completed && dueDate !== null && isPast(dueDate) && !isToday(dueDate);
+  const isDueToday = dueDate !== null && isToday(dueDate);
 
   function handleToggle() {
     startTransition(() => toggleTaskComplete(task.id, !completed, task.due_at));
@@ -49,14 +52,14 @@ export function TaskRow({
 
   if (editing) {
     return (
-      <li className="flex flex-col gap-2 rounded-lg border bg-background p-3 shadow-sm">
+      <li className="flex flex-col gap-2 rounded-2xl border bg-background p-3 shadow-sm">
         <TaskEditForm task={task} onSaved={() => setEditing(false)} onCancel={() => setEditing(false)} />
       </li>
     );
   }
 
   return (
-    <li className="group flex flex-col gap-2 rounded-lg border bg-background p-3 transition-colors hover:border-border hover:bg-accent/30">
+    <li className="group flex flex-col gap-2 rounded-2xl border bg-background p-3 transition-colors hover:border-border hover:bg-accent/30">
       <div className="flex items-center gap-3">
         <Checkbox checked={completed} onCheckedChange={handleToggle} disabled={isPending} />
         <button
@@ -72,9 +75,17 @@ export function TaskRow({
             className={`h-2 w-2 shrink-0 rounded-full ${priorityColor(task.priority)}`}
           />
         )}
-        {task.due_at && (
-          <span className="whitespace-nowrap text-xs text-muted-foreground">
-            {formatRelativeDays(new Date(task.due_at))} &middot; {format(new Date(task.due_at), "MMM d, h:mm a")}
+        {dueDate && (
+          <span
+            className={`whitespace-nowrap text-xs ${
+              isOverdue
+                ? "rounded-full bg-accent-700 px-2 py-0.5 font-medium text-accent-100"
+                : isDueToday
+                  ? "rounded-full bg-accent-100 px-2 py-0.5 font-medium text-accent-800"
+                  : "text-muted-foreground"
+            }`}
+          >
+            {formatRelativeDays(dueDate)} &middot; {format(dueDate, "MMM d, h:mm a")}
           </span>
         )}
         {completed && (

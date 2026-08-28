@@ -473,3 +473,6 @@ coverage/
 playwright-report/
 test-results/
 blob-report/
+
+# brainstorming companion scratch files
+.superpowers/

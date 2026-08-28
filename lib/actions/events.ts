@@ -12,7 +12,7 @@ const eventSchema = z.object({
   title: z.string().trim().min(1),
   startAt: z.string(),
   endAt: z.string(),
-  calendarColor: z.string().default("#3b82f6"),
+  calendarColor: z.string().default("#7a8a5e"),
   alsoCreateTask: z.string().optional(),
 });
 
@@ -39,7 +39,7 @@ export interface InsertEventResult {
 export async function insertEventCore(
   supabase: SupabaseClient<Database>,
   userId: string,
-  { title, startAt, endAt, calendarColor = "#3b82f6", alsoCreateTask = false }: InsertEventParams
+  { title, startAt, endAt, calendarColor = "#7a8a5e", alsoCreateTask = false }: InsertEventParams
 ): Promise<InsertEventResult> {
   // A companion-task creation failure should never block the event itself
   // from being created -- same never-block-submission principle used

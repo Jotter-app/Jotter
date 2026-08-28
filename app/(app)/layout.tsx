@@ -8,6 +8,8 @@ import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { NotificationSetup } from "@/components/notifications/NotificationSetupLoader";
 import { ThemeToggle } from "@/components/theme/ThemeToggleLoader";
 import { TopNav } from "@/components/layout/TopNav";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { MobileOverflowMenu } from "@/components/layout/MobileOverflowMenu";
 
 // Belt-and-suspenders with proxy.ts: proxy already redirects unauthenticated
 // requests to /login, but a Server Component that renders without going
@@ -27,31 +29,39 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <header className="sticky top-0 z-40 flex items-center justify-between gap-4 border-b bg-background/95 px-4 py-2.5 backdrop-blur supports-backdrop-filter:bg-background/75">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+            <div className="flex size-7 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
               J
             </div>
-            <span className="hidden font-semibold sm:inline">Jotter</span>
+            <span className="hidden font-heading text-lg text-accent-700 sm:inline">Jotter</span>
           </div>
-          <TopNav />
+          <div className="hidden sm:block">
+            <TopNav />
+          </div>
         </div>
         <div className="flex items-center gap-1.5">
           <NotificationSetup />
           <GlobalSearch />
-          <ThemeToggle />
-          <Link href="/settings">
-            <Button variant="ghost" size="sm" aria-label="Settings">
-              <Settings className="size-4" />
-            </Button>
-          </Link>
-          <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm" aria-label="Sign out">
-              <LogOut className="size-4" />
-              <span className="hidden md:inline">Sign out</span>
-            </Button>
-          </form>
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <ThemeToggle />
+            <Link href="/settings">
+              <Button variant="ghost" size="sm" aria-label="Settings">
+                <Settings className="size-4" />
+              </Button>
+            </Link>
+            <form action={signOut}>
+              <Button type="submit" variant="ghost" size="sm" aria-label="Sign out">
+                <LogOut className="size-4" />
+                <span className="hidden md:inline">Sign out</span>
+              </Button>
+            </form>
+          </div>
+          <div className="sm:hidden">
+            <MobileOverflowMenu />
+          </div>
         </div>
       </header>
-      <div className="flex flex-1 bg-muted/30">{children}</div>
+      <div className="flex flex-1 pb-16 sm:pb-0">{children}</div>
+      <BottomNav />
     </div>
   );
 }

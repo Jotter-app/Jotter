@@ -31,18 +31,15 @@ export function TagFilterRow({ allTags, activeTagId }: { allTags: Tag[]; activeT
     <div className="flex flex-wrap items-center gap-2 text-xs">
       <Link
         href="/tasks"
-        className={`rounded-full px-2 py-0.5 ${!activeTagId ? "bg-foreground text-background" : "bg-muted text-muted-foreground"}`}
+        className={`rounded-full px-2 py-0.5 ${!activeTagId ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
       >
         All
       </Link>
       {allTags.map((tag) => (
         <span
           key={tag.id}
-          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-white"
-          style={{
-            backgroundColor: tag.color,
-            opacity: activeTagId && activeTagId !== tag.id ? 0.4 : 1,
-          }}
+          className="inline-flex items-center gap-1 rounded-full border border-accent px-2 py-0.5 text-accent-700"
+          style={{ opacity: activeTagId && activeTagId !== tag.id ? 0.4 : 1 }}
         >
           <Link href={`/tasks?tag=${tag.id}`}>{tag.name}</Link>
           <ConfirmDeleteButton

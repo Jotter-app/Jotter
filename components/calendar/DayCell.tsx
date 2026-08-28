@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { EventChip, type LinkedTask } from "@/components/calendar/EventChip";
 import { TaskChip } from "@/components/calendar/TaskChip";
 import { dayKey } from "@/lib/calendar/grid";
+import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
@@ -18,6 +19,7 @@ export function DayCell({
   dimmed,
   onAddEvent,
   linkedTasksById,
+  className,
 }: {
   date: Date;
   events: Event[];
@@ -25,17 +27,23 @@ export function DayCell({
   dimmed?: boolean;
   onAddEvent: (date: Date) => void;
   linkedTasksById?: Map<string, LinkedTask>;
+  className?: string;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dayKey(date) });
 
-  const bg = isOver ? "bg-primary/10" : dimmed ? "bg-muted/20" : "bg-background";
+  const bg = isOver ? "bg-primary/10" : dimmed ? "bg-muted/30" : isToday(date) ? "bg-accent-100" : "bg-card";
 
   return (
     <div
       ref={setNodeRef}
       data-testid="day-cell"
       data-date={dayKey(date)}
-      className={`group/cell flex min-h-24 flex-col gap-1 p-1.5 transition-colors ${bg} ${dimmed ? "text-muted-foreground" : ""}`}
+      className={cn(
+        "group/cell flex min-h-24 flex-col gap-1 rounded-2xl p-1.5 shadow-sm transition-colors",
+        bg,
+        dimmed ? "text-muted-foreground shadow-none" : "",
+        className
+      )}
     >
       <div className="flex items-center justify-between">
         <span

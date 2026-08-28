@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { EditorState, Prec } from "@codemirror/state";
 import { EditorView, keymap, placeholder as placeholderExtension } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -101,25 +101,37 @@ const editorTheme = EditorView.theme({
  * abstraction layer for a problem that's mostly "write CM6 extensions"
  * anyway.
  */
-export function NoteBodyEditor({
-  value,
-  onChange,
-  placeholder,
-  className,
-  allNoteTitles = [],
-  onWikilinkClick,
-  linkedTasks = [],
-  onToggleLinkedTask,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  className?: string;
-  allNoteTitles?: WikilinkCandidate[];
-  onWikilinkClick?: (target: WikilinkTarget) => void;
-  linkedTasks?: LinkedTaskInfo[];
-  onToggleLinkedTask?: (taskId: string, checked: boolean, dueAt: string | null) => void;
-}) {
+export interface NoteBodyEditorHandle {
+  /** The live CodeMirror view, for the formatting toolbar's commands
+   * (components/notes/editor/formattingCommands.ts) -- null before mount. */
+  getView: () => EditorView | null;
+}
+
+export const NoteBodyEditor = forwardRef<
+  NoteBodyEditorHandle,
+  {
+    value: string;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    className?: string;
+    allNoteTitles?: WikilinkCandidate[];
+    onWikilinkClick?: (target: WikilinkTarget) => void;
+    linkedTasks?: LinkedTaskInfo[];
+    onToggleLinkedTask?: (taskId: string, checked: boolean, dueAt: string | null) => void;
+  }
+>(function NoteBodyEditor(
+  {
+    value,
+    onChange,
+    placeholder,
+    className,
+    allNoteTitles = [],
+    onWikilinkClick,
+    linkedTasks = [],
+    onToggleLinkedTask,
+  },
+  ref
+) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -129,6 +141,8 @@ export function NoteBodyEditor({
   const onToggleLinkedTaskRef = useRef(onToggleLinkedTask);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const menuRef = useRef<MenuState | null>(null);
+
+  useImperativeHandle(ref, () => ({ getView: () => viewRef.current }), []);
 
   // Kept fresh via an effect rather than assigned directly during render --
   // these refs are read from inside CM6 extension closures set up once at
@@ -349,4 +363,4 @@ export function NoteBodyEditor({
       )}
     </div>
   );
-}
+});

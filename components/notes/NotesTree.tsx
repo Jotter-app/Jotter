@@ -10,11 +10,20 @@ import { ExportLink } from "@/components/notes/ExportLink";
 import { createFolder, renameFolder, moveFolder } from "@/lib/actions/folders";
 import { createNote, deleteNote, moveNote } from "@/lib/actions/notes";
 import { countNotesInSubtree, flattenForPicker, type FolderNode } from "@/lib/notes/tree";
+import { notebookAccentClass } from "@/lib/notes/notebookAccent";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
 
 type NoteSummary = { id: string; title: string; folder_id: string | null };
 
-export function NotesTree({ roots, rootNotes }: { roots: FolderNode[]; rootNotes: NoteSummary[] }) {
+export function NotesTree({
+  roots,
+  rootNotes,
+  activeFolderId,
+}: {
+  roots: FolderNode[];
+  rootNotes: NoteSummary[];
+  activeFolderId?: string;
+}) {
   const allFolderOptions = flattenForPicker(roots);
 
   const isEmpty = roots.length === 0 && rootNotes.length === 0;
@@ -28,7 +37,7 @@ export function NotesTree({ roots, rootNotes }: { roots: FolderNode[]; rootNotes
       )}
       <div className="flex flex-col gap-1">
         {roots.map((node) => (
-          <FolderRow key={node.id} node={node} depth={0} allFolders={roots} />
+          <FolderRow key={node.id} node={node} depth={0} allFolders={roots} activeFolderId={activeFolderId} />
         ))}
         {rootNotes.map((note) => (
           <NoteRow key={note.id} note={note} depth={0} allFolders={allFolderOptions} />
@@ -39,7 +48,17 @@ export function NotesTree({ roots, rootNotes }: { roots: FolderNode[]; rootNotes
   );
 }
 
-function FolderRow({ node, depth, allFolders }: { node: FolderNode; depth: number; allFolders: FolderNode[] }) {
+function FolderRow({
+  node,
+  depth,
+  allFolders,
+  activeFolderId,
+}: {
+  node: FolderNode;
+  depth: number;
+  allFolders: FolderNode[];
+  activeFolderId?: string;
+}) {
   // Only top-level folders start expanded -- a large imported vault can be
   // many levels deep, and expanding every folder at every depth by default
   // buries the tree in its own contents before the user can navigate it.
@@ -70,7 +89,12 @@ function FolderRow({ node, depth, allFolders }: { node: FolderNode; depth: numbe
     // (quadratically, not linearly), eventually shoving deeply-nested
     // rows so far right their titles render off the edge of the card.
     <div>
-      <div className="group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40" style={{ marginLeft: depth * 16 }}>
+      <div
+        className={`group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40 ${
+          activeFolderId === node.id ? "bg-accent-100" : ""
+        }`}
+        style={{ marginLeft: depth * 16 }}
+      >
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
@@ -80,7 +104,15 @@ function FolderRow({ node, depth, allFolders }: { node: FolderNode; depth: numbe
           {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
         </button>
 
-        {expanded ? (
+        {depth === 0 ? (
+          <Link
+            href={`/notes?folder=${node.id}`}
+            title={`View ${node.name} in the dashboard`}
+            className={`flex size-6 shrink-0 items-center justify-center rounded-full ${notebookAccentClass(node.id)}`}
+          >
+            {expanded ? <FolderOpen className="size-3.5" /> : <Folder className="size-3.5" />}
+          </Link>
+        ) : expanded ? (
           <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
         ) : (
           <Folder className="size-4 shrink-0 text-muted-foreground" />
