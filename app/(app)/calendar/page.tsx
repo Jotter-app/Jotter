@@ -75,7 +75,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-card p-3 shadow-sm">
-        <h1 className="pl-1 text-xl font-semibold tracking-tight">
+        <h1 className="pl-1 font-heading text-xl tracking-tight">
           {view === "month" ? format(anchorDate, "MMMM yyyy") : `Week of ${format(startOfWeek(anchorDate), "MMM d")}`}
         </h1>
         <div className="flex items-center gap-2">

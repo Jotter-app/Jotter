@@ -75,7 +75,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Tasks</h1>
+      <h1 className="font-heading text-2xl tracking-tight">Tasks</h1>
 
       <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm">
         <QuickAddBar />
@@ -89,7 +89,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
               key={section.title}
               className={`rounded-2xl border bg-card p-4 shadow-sm ring-1 ${section.ring}`}
             >
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+              <h2 className="mb-3 flex items-center gap-2 font-sans text-sm font-semibold">
                 <span className={`size-2 rounded-full ${section.dot}`} />
                 {section.title}
                 <span className="font-normal text-muted-foreground">{section.tasks.length}</span>
