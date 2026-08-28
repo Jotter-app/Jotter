@@ -1,8 +1,8 @@
-import { format } from "date-fns";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { insertTaskCore } from "@/lib/actions/tasks";
 import { linkTaskNoteCore } from "@/lib/actions/taskNoteLinks";
 import { findTaskCommands } from "@/lib/jotter/parseNoteCommands";
+import { formatTaskCheckboxLine } from "@/lib/jotter/formatTaskCheckboxLine";
 import type { Database } from "@/lib/supabase/database.types";
 
 /**
@@ -41,9 +41,7 @@ export async function processNoteTaskCommands(
 
     await linkTaskNoteCore(supabase, userId, result.taskId, noteId);
 
-    const dueText = intent.dueAt ? ` (due ${format(intent.dueAt, "MMM d, h:mm a")})` : "";
-    const tagsText = intent.tags.map((tag) => ` #${tag}`).join("");
-    lines[lineIndex] = `- [ ] ${intent.title}${dueText}${tagsText} <!-- task:${result.taskId} -->`;
+    lines[lineIndex] = formatTaskCheckboxLine(result.taskId, intent.title, intent.dueAt, intent.tags);
   }
 
   return lines.join("\n");

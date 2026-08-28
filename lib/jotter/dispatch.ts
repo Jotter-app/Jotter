@@ -10,6 +10,7 @@ import { getDefaultEventCreatesTaskCore } from "@/lib/actions/settings";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 import { parseImplicit } from "@/lib/jotter/parseImplicit";
 import { parseExplicit } from "@/lib/jotter/parseExplicit";
+import { DEFAULT_EVENT_DURATION_MS } from "@/lib/jotter/duration";
 import type { JotterIntent, JotterRoute } from "@/lib/jotter/types";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -19,9 +20,6 @@ export interface JotterDispatchResult {
   route: JotterRoute | null;
   redirectTo: string | null;
 }
-
-// Matches AddEventDialog's own default when no end time is given.
-const DEFAULT_EVENT_DURATION_MS = 3_600_000;
 
 function fail(error: string, route: JotterRoute | null = null): JotterDispatchResult {
   return { ok: false, error, route, redirectTo: null };

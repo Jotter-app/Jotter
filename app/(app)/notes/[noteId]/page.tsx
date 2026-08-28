@@ -18,6 +18,8 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
     { data: allNoteTitles },
     { data: noteLinks },
     { data: folders },
+    { data: taskTaggables },
+    { data: noteTaggables },
   ] = await Promise.all([
     supabase.from("notes").select().eq("id", noteId).maybeSingle(),
     supabase.from("tags").select().order("name"),
@@ -37,6 +39,14 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
       .select("notes!note_links_source_note_id_fkey(id, title)")
       .eq("target_note_id", noteId),
     supabase.from("folders").select("id, name, parent_folder_id"),
+    // Every task's/note's tags, unscoped by id -- powers embedded queries
+    // (?tasks #tag / ?notes #tag), which can reference any of the user's
+    // tasks or notes, not just ones already linked to this one. taggables
+    // has no FK to tasks/notes (see its migration), so this has to be a
+    // separate query joined client-side, same as the Tasks page's
+    // tagsByTaskId construction -- not a nested select off tasks/notes.
+    supabase.from("taggables").select("taggable_id, tags(name)").eq("taggable_type", "task"),
+    supabase.from("taggables").select("taggable_id, tags(name)").eq("taggable_type", "note"),
   ]);
 
   if (!note) {
@@ -47,6 +57,36 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
   const linkedTasks = (taskNoteLinks ?? []).flatMap((row) => (row.tasks ? [row.tasks] : []));
   const backlinks = (noteLinks ?? []).flatMap((row) => (row.notes ? [row.notes] : []));
   const breadcrumb = folderBreadcrumb(folders ?? [], note.folder_id);
+
+  const tagNamesByTaskId = new Map<string, string[]>();
+  for (const row of taskTaggables ?? []) {
+    if (!row.tags) continue;
+    const existing = tagNamesByTaskId.get(row.taggable_id) ?? [];
+    existing.push(row.tags.name);
+    tagNamesByTaskId.set(row.taggable_id, existing);
+  }
+
+  const tagNamesByNoteId = new Map<string, string[]>();
+  for (const row of noteTaggables ?? []) {
+    if (!row.tags) continue;
+    const existing = tagNamesByNoteId.get(row.taggable_id) ?? [];
+    existing.push(row.tags.name);
+    tagNamesByNoteId.set(row.taggable_id, existing);
+  }
+
+  const queryableTasks = (allTasks ?? []).map((task) => ({
+    id: task.id,
+    title: task.title,
+    completed_at: task.completed_at,
+    due_at: task.due_at,
+    tags: tagNamesByTaskId.get(task.id) ?? [],
+  }));
+
+  const queryableNotes = (allNoteTitles ?? []).map((n) => ({
+    id: n.id,
+    title: n.title,
+    tags: tagNamesByNoteId.get(n.id) ?? [],
+  }));
 
   return (
     <div className="flex w-full flex-col">
@@ -68,6 +108,8 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
         allNoteTitles={allNoteTitles ?? []}
         backlinks={backlinks}
         breadcrumb={breadcrumb}
+        queryableTasks={queryableTasks}
+        queryableNotes={queryableNotes}
       />
     </div>
   );

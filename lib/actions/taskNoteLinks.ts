@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
+import { insertTaskCore } from "@/lib/actions/tasks";
+import { parseQuickAdd } from "@/lib/dates/parseQuickAdd";
+import { extractAndStripTags } from "@/lib/markdown/extractTags";
+import { formatTaskCheckboxLine } from "@/lib/jotter/formatTaskCheckboxLine";
 import type { Database } from "@/lib/supabase/database.types";
 
 // Core logic factored out (same seam as insertEventCore) so it's callable
@@ -48,4 +52,43 @@ export async function unlinkTaskNote(taskId: string, noteId: string) {
 
   revalidatePath("/tasks");
   revalidatePath(`/notes/${noteId}`);
+}
+
+// Powers the note editor's "create linked task from this line" toolbar
+// button. Reuses parseQuickAdd/extractAndStripTags -- the same pair
+// parseImplicit.ts uses for freeform text -- so a line like "Call the
+// dentist tomorrow 5pm #health" picks up the due date and tag instead of
+// keeping them as literal title text. Returns the formatted checkbox line
+// so the caller can splice it into the editor in place of the raw line.
+export async function createTaskFromNoteLineCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  noteId: string,
+  lineText: string
+): Promise<{ ok: boolean; replacementLine: string | null }> {
+  const trimmed = lineText.trim();
+  if (!trimmed) return { ok: false, replacementLine: null };
+
+  const { title: titleWithTags, dueAt } = parseQuickAdd(trimmed);
+  const { title, tags } = extractAndStripTags(titleWithTags);
+  if (!title) return { ok: false, replacementLine: null };
+
+  const result = await insertTaskCore(supabase, userId, { title, dueAt, tagNames: tags });
+  if (!result.ok || !result.taskId) return { ok: false, replacementLine: null };
+
+  await linkTaskNoteCore(supabase, userId, result.taskId, noteId);
+  return { ok: true, replacementLine: formatTaskCheckboxLine(result.taskId, title, dueAt, tags) };
+}
+
+export async function createTaskFromNoteLine(noteId: string, lineText: string) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return { ok: false, replacementLine: null };
+
+  const result = await createTaskFromNoteLineCore(supabase, userId, noteId, lineText);
+
+  if (result.ok) {
+    revalidatePath("/tasks");
+    revalidatePath("/calendar");
+  }
+  return result;
 }
