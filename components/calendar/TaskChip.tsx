@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
@@ -9,6 +8,8 @@ import { TaskEditForm } from "@/components/tasks/TaskEditForm";
 import { deleteTask, toggleTaskComplete } from "@/lib/actions/tasks";
 import { priorityColor, priorityLabel } from "@/lib/tasks/priority";
 import { formatRelativeDays } from "@/lib/dates/relativeDays";
+import { formatInTimeZone } from "@/lib/dates/formatInTimeZone";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -22,6 +23,7 @@ export function TaskChip({ task }: { task: Task }) {
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [open, setOpen] = useState(false);
+  const timeZone = useTimeZone();
 
   const completed = task.completed_at !== null;
 
@@ -66,7 +68,8 @@ export function TaskChip({ task }: { task: Task }) {
             </div>
             {task.due_at && (
               <p className="text-xs text-muted-foreground">
-                {formatRelativeDays(new Date(task.due_at))} &middot; {format(new Date(task.due_at), "MMM d, h:mm a")}
+                {formatRelativeDays(new Date(task.due_at), timeZone)} &middot;{" "}
+                {formatInTimeZone(new Date(task.due_at), timeZone, "MMM d, h:mm a")}
               </p>
             )}
             <label className="mt-2 flex items-center gap-2 text-sm">

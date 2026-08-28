@@ -3,7 +3,9 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
+import { formatInTimeZone } from "@/lib/dates/formatInTimeZone";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import { Bold, Italic, Heading1, ListChecks, ListTodo, Link2, ChevronRight, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -61,6 +63,7 @@ export function NoteEditor({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const timeZone = useTimeZone();
   const [title, setTitle] = useState(note.title);
   const [body, setBody] = useState(note.body_markdown);
   const [dirty, setDirty] = useState(false);
@@ -198,7 +201,7 @@ export function NoteEditor({
         />
         <TagPicker taggableId={note.id} taggableType="note" allTags={allTags} assignedTags={assignedTags} />
         <p className="text-xs text-muted-foreground">
-          Created {format(new Date(note.created_at), "MMM d, yyyy")} &middot; Edited{" "}
+          Created {formatInTimeZone(new Date(note.created_at), timeZone, "MMM d, yyyy")} &middot; Edited{" "}
           {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}
         </p>
         <LinkedTasksPicker noteId={note.id} allTasks={allTasks} linkedTasks={linkedTasks} />
@@ -226,7 +229,7 @@ export function NoteEditor({
               {linkedEvents.map((event) => (
                 <li key={event.id}>
                   <Link href="/calendar" className="rounded-full border bg-muted px-2 py-0.5 text-xs hover:bg-accent">
-                    {event.title} &middot; {format(new Date(event.start_at), "MMM d")}
+                    {event.title} &middot; {formatInTimeZone(new Date(event.start_at), timeZone, "MMM d")}
                   </Link>
                 </li>
               ))}

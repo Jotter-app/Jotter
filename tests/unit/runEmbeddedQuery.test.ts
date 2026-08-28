@@ -145,4 +145,28 @@ describe("runEmbeddedQuery", () => {
     expect(result.items).toHaveLength(10);
     expect(result.totalCount).toBe(11);
   });
+
+  // The optional `timeZone` argument defaults to the executing runtime's
+  // own local zone (safe here since this only ever runs client-side -- see
+  // runEmbeddedQuery.ts), but must still be genuinely threaded through to
+  // groupTasksByDueDate when a caller passes one explicitly, otherwise a
+  // task correctly stored as a UTC instant would sort into the wrong due:
+  // bucket whenever the viewer's zone disagrees with the host's.
+  it("uses an explicitly passed timeZone for due: filtering, independent of the host's own zone", () => {
+    // "Now" is 2026-08-28T22:13:00Z. 2026-08-29T04:00:00Z is tomorrow in
+    // UTC but still today in America/Chicago (UTC-5 in August).
+    const now = new Date("2026-08-28T22:13:00Z");
+    const tasks = [task({ id: "straddling", due_at: "2026-08-29T04:00:00Z" })];
+
+    const asUtc = runEmbeddedQuery({ pillar: "task", due: "today" }, { tasks, notes: [] }, now, "UTC");
+    expect(asUtc.items).toEqual([]);
+
+    const asChicago = runEmbeddedQuery(
+      { pillar: "task", due: "today" },
+      { tasks, notes: [] },
+      now,
+      "America/Chicago"
+    );
+    expect(asChicago.items.map((t) => t.id)).toEqual(["straddling"]);
+  });
 });

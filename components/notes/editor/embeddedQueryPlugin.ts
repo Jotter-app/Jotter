@@ -68,7 +68,14 @@ class EmbeddedQueryWidget extends WidgetType {
           const due = document.createElement("span");
           due.className = "cm-md-query-due";
           const dueDate = new Date(task.due_at);
-          due.textContent = `${formatRelativeDays(dueDate)} · ${format(dueDate, "MMM d, h:mm a")}`;
+          // This widget is built imperatively via CodeMirror's toDOM(),
+          // entirely outside React's render tree -- it never runs during
+          // SSR, so reading the live browser timezone directly here (rather
+          // than threading one through, as the React-rendered date displays
+          // elsewhere in the app must) is always correct, not just a
+          // same-runtime coincidence.
+          const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          due.textContent = `${formatRelativeDays(dueDate, timeZone)} · ${format(dueDate, "MMM d, h:mm a")}`;
           row.appendChild(due);
         }
       } else if (this.pillar === "note") {

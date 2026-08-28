@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { format, isPast, isToday } from "date-fns";
+import { isPast } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { priorityColor, priorityLabel } from "@/lib/tasks/priority";
-import { formatRelativeDays } from "@/lib/dates/relativeDays";
+import { formatRelativeDays, isTodayInTimeZone } from "@/lib/dates/relativeDays";
+import { formatInTimeZone } from "@/lib/dates/formatInTimeZone";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import { archiveTask, deleteTask, toggleTaskComplete } from "@/lib/actions/tasks";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
@@ -33,11 +35,16 @@ export function TaskRow({
 }) {
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
+  const timeZone = useTimeZone();
 
   const completed = task.completed_at !== null;
   const dueDate = task.due_at ? new Date(task.due_at) : null;
-  const isOverdue = !completed && dueDate !== null && isPast(dueDate) && !isToday(dueDate);
-  const isDueToday = dueDate !== null && isToday(dueDate);
+  // isPast compares raw instants (`date.getTime() < Date.now()`), which is
+  // timezone-invariant, so it's left as-is -- only the calendar-day check
+  // needs the viewer's timezone, since "is this still today" depends on
+  // where the viewer's midnight falls.
+  const isOverdue = !completed && dueDate !== null && isPast(dueDate) && !isTodayInTimeZone(dueDate, timeZone);
+  const isDueToday = dueDate !== null && isTodayInTimeZone(dueDate, timeZone);
 
   function handleToggle() {
     startTransition(() => toggleTaskComplete(task.id, !completed, task.due_at));
@@ -86,7 +93,7 @@ export function TaskRow({
                   : "text-muted-foreground"
             }`}
           >
-            {formatRelativeDays(dueDate)} &middot; {format(dueDate, "MMM d, h:mm a")}
+            {formatRelativeDays(dueDate, timeZone)} &middot; {formatInTimeZone(dueDate, timeZone, "MMM d, h:mm a")}
           </span>
         )}
         {completed && (

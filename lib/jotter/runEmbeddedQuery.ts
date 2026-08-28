@@ -1,4 +1,5 @@
 import { startOfDay, endOfDay } from "date-fns";
+import { TZDate } from "@date-fns/tz";
 import { groupTasksByDueDate } from "@/lib/tasks/groupTasksByDueDate";
 import type { EmbeddedQuery } from "@/lib/jotter/parseEmbeddedQuery";
 
@@ -41,7 +42,14 @@ const RESULT_LIMIT = 10;
 export function runEmbeddedQuery(
   query: EmbeddedQuery,
   data: { tasks: QueryableTask[]; notes: QueryableNote[]; events?: QueryableEvent[] },
-  referenceDate: Date = new Date()
+  referenceDate: Date = new Date(),
+  // Defaulted to the executing runtime's own local timezone is safe here
+  // (unlike groupTasksByDueDate's own required timeZone param) because
+  // this function only ever runs client-side, from the CodeMirror
+  // embedded-query widget (see embeddedQueryPlugin.ts) -- there's no
+  // server render of this output to disagree with, so "whichever runtime
+  // executes this" is always correctly the viewer's own browser.
+  timeZone: string = Intl.DateTimeFormat().resolvedOptions().timeZone
 ): EmbeddedQueryResult<QueryableTask | QueryableNote | QueryableEvent> {
   if (query.pillar === "note") {
     const matches = query.tag ? data.notes.filter((n) => n.tags.includes(query.tag!)) : data.notes;
@@ -56,8 +64,9 @@ export function runEmbeddedQuery(
     // so they're simply not applied here (same no-op posture as
     // due:/status: on a ?notes query).
     if (query.due === "today") {
-      const start = startOfDay(referenceDate);
-      const end = endOfDay(referenceDate);
+      const zonedReference = new TZDate(referenceDate, timeZone);
+      const start = startOfDay(zonedReference);
+      const end = endOfDay(zonedReference);
       matches = matches.filter((e) => {
         const startAt = new Date(e.start_at);
         return startAt >= start && startAt <= end;
@@ -73,7 +82,7 @@ export function runEmbeddedQuery(
   }
 
   if (query.due) {
-    const groups = groupTasksByDueDate(matches, referenceDate);
+    const groups = groupTasksByDueDate(matches, timeZone, referenceDate);
     matches =
       query.due === "overdue" ? groups.overdue : query.due === "today" ? groups.today : [...groups.today, ...groups.thisWeek];
   }

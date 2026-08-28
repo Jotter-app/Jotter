@@ -4,7 +4,6 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useDraggable } from "@dnd-kit/core";
-import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,8 @@ import { TagPicker } from "@/components/tags/TagPicker";
 import { toggleTaskComplete } from "@/lib/actions/tasks";
 import { generateMeetingNote } from "@/lib/actions/events";
 import { formatRelativeDays } from "@/lib/dates/relativeDays";
+import { formatInTimeZone } from "@/lib/dates/formatInTimeZone";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
@@ -32,6 +33,7 @@ export function EventChip({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const timeZone = useTimeZone();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: event.id,
     data: { event },
@@ -68,9 +70,9 @@ export function EventChip({
       <PopoverContent className="w-56">
         <p className="text-sm font-medium">{event.title}</p>
         <p className="text-xs text-muted-foreground">
-          {formatRelativeDays(new Date(event.start_at))} &middot;{" "}
-          {format(new Date(event.start_at), "MMM d, h:mm a")} &ndash;{" "}
-          {format(new Date(event.end_at), "h:mm a")}
+          {formatRelativeDays(new Date(event.start_at), timeZone)} &middot;{" "}
+          {formatInTimeZone(new Date(event.start_at), timeZone, "MMM d, h:mm a")} &ndash;{" "}
+          {formatInTimeZone(new Date(event.end_at), timeZone, "h:mm a")}
         </p>
         {linkedTask && (
           <label className="mt-2 flex items-center gap-2 text-sm">
