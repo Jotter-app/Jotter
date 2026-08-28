@@ -16,7 +16,6 @@ import type { WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
 import { saveNote, createNoteFromWikilink, setNoteStarred } from "@/lib/actions/notes";
 import { toggleTaskComplete } from "@/lib/actions/tasks";
 import { createTaskFromNoteLine } from "@/lib/actions/taskNoteLinks";
-import { createEventFromNoteText } from "@/lib/actions/events";
 import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
 import type { QueryableNote, QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
 import type { Database } from "@/lib/supabase/database.types";
@@ -112,16 +111,16 @@ export function NoteEditor({
     });
   }
 
-  function handleCreateEventFromLine(lineText: string, markerInsertPos: number) {
+  // Same underlying action as handleCreateTaskFromLine (the toolbar
+  // button) -- the date-detection plugin is just a second trigger for the
+  // identical whole-line-to-checkbox conversion, reacting to a detected
+  // date instead of a manual click on the current line.
+  function handleCreateTaskFromDate(lineFrom: number, lineTo: number, lineText: string) {
     startTransition(async () => {
-      const result = await createEventFromNoteText(lineText);
-      if (result.ok && result.eventId) {
-        withView((view) =>
-          view.dispatch({
-            changes: { from: markerInsertPos, to: markerInsertPos, insert: `<!-- event:${result.eventId} -->` },
-          })
-        );
-      }
+      const result = await createTaskFromNoteLine(note.id, lineText);
+      const replacementLine = result.replacementLine;
+      if (!result.ok || !replacementLine) return;
+      withView((view) => view.dispatch({ changes: { from: lineFrom, to: lineTo, insert: replacementLine } }));
     });
   }
 
@@ -230,7 +229,7 @@ export function NoteEditor({
         onWikilinkClick={handleWikilinkClick}
         linkedTasks={linkedTasks}
         onToggleLinkedTask={handleToggleLinkedTask}
-        onCreateEvent={handleCreateEventFromLine}
+        onCreateTaskFromDate={handleCreateTaskFromDate}
         queryableTasks={queryableTasks}
         queryableNotes={queryableNotes}
         onToggleQueryTask={handleToggleQueryTask}

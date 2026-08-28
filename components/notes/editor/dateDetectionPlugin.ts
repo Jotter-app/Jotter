@@ -2,13 +2,14 @@ import * as chrono from "chrono-node";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate, WidgetType } from "@codemirror/view";
 
-// Written by NoteEditor's handleCreateEventFromLine once the server confirms
-// the event exists -- its presence on a line is what keeps that line from
-// offering "Create event?" again on every re-render, the same idempotency
-// role TASK_MARKER_COMMENT plays in liveMarkdownPlugin.
-const EVENT_MARKER = /<!-- event:([0-9a-fA-F-]+) -->/;
+// A line that's already a task checkbox (either hand-typed, from
+// "/task create", or from this plugin's own previous click) never gets a
+// prompt -- without this guard, a converted line's own "(due Aug 29, 2:00
+// PM)" suffix would itself look like a fresh date match and offer to
+// convert the line again.
+const TASK_CHECKBOX_LINE = /^\s*-\s*\[[ xX]\]/;
 
-class CreateEventWidget extends WidgetType {
+class CreateTaskWidget extends WidgetType {
   constructor(
     private readonly matchText: string,
     private readonly onClick: () => void
@@ -16,15 +17,15 @@ class CreateEventWidget extends WidgetType {
     super();
   }
 
-  eq(other: CreateEventWidget) {
+  eq(other: CreateTaskWidget) {
     return other.matchText === this.matchText;
   }
 
   toDOM() {
     const button = document.createElement("button");
     button.type = "button";
-    button.className = "cm-md-create-event";
-    button.textContent = "Create event?";
+    button.className = "cm-md-create-task-prompt";
+    button.textContent = "Create task?";
     button.addEventListener("mousedown", (event) => {
       event.preventDefault();
       this.onClick();
@@ -39,19 +40,6 @@ class CreateEventWidget extends WidgetType {
   }
 }
 
-class EventCreatedWidget extends WidgetType {
-  eq() {
-    return true;
-  }
-
-  toDOM() {
-    const span = document.createElement("span");
-    span.className = "cm-md-event-created";
-    span.textContent = "✓ Event created";
-    return span;
-  }
-}
-
 interface DecoEntry {
   from: number;
   to: number;
@@ -60,7 +48,7 @@ interface DecoEntry {
 
 function buildDateDecorations(
   view: EditorView,
-  onCreateEvent: (lineText: string, markerInsertPos: number) => void
+  onCreateTask: (lineFrom: number, lineTo: number, lineText: string) => void
 ): DecorationSet {
   const { state } = view;
   const doc = state.doc;
@@ -81,18 +69,7 @@ function buildDateDecorations(
     for (let n = firstLine; n <= lastLine; n++) {
       if (activeLines.has(n)) continue;
       const line = doc.line(n);
-
-      const markerMatch = EVENT_MARKER.exec(line.text);
-      if (markerMatch) {
-        const markerFrom = line.from + markerMatch.index;
-        const markerTo = markerFrom + markerMatch[0].length;
-        entries.push({
-          from: markerFrom,
-          to: markerTo,
-          deco: Decoration.replace({ widget: new EventCreatedWidget() }),
-        });
-        continue;
-      }
+      if (TASK_CHECKBOX_LINE.test(line.text)) continue;
 
       // Only the first match per line, mirroring parseQuickAdd's own
       // "first chrono match wins" behavior -- one prompt per line, max.
@@ -107,7 +84,7 @@ function buildDateDecorations(
         from: matchTo,
         to: matchTo,
         deco: Decoration.widget({
-          widget: new CreateEventWidget(line.text, () => onCreateEvent(line.text, matchTo)),
+          widget: new CreateTaskWidget(line.text, () => onCreateTask(line.from, line.to, line.text)),
           side: 1,
         }),
       });
@@ -121,19 +98,19 @@ function buildDateDecorations(
 }
 
 // Factory (like createWikilinkExtensions) since this needs a live callback
-// into React for the actual createEventFromNoteText call -- callers pass a
+// into React for the actual createTaskFromNoteLine call -- callers pass a
 // wrapper that reads from a ref kept fresh by the caller, same pattern
 // NoteBodyEditor already uses for onWikilinkClick.
-export function createDateDetectionPlugin(onCreateEvent: (lineText: string, markerInsertPos: number) => void) {
+export function createDateDetectionPlugin(onCreateTask: (lineFrom: number, lineTo: number, lineText: string) => void) {
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
       constructor(view: EditorView) {
-        this.decorations = buildDateDecorations(view, onCreateEvent);
+        this.decorations = buildDateDecorations(view, onCreateTask);
       }
       update(update: ViewUpdate) {
         if (update.docChanged || update.selectionSet || update.viewportChanged) {
-          this.decorations = buildDateDecorations(update.view, onCreateEvent);
+          this.decorations = buildDateDecorations(update.view, onCreateTask);
         }
       }
     },
@@ -148,7 +125,7 @@ export const dateDetectionTheme = EditorView.theme({
     textDecorationColor: "var(--muted-foreground)",
     textUnderlineOffset: "2px",
   },
-  ".cm-md-create-event": {
+  ".cm-md-create-task-prompt": {
     marginLeft: "0.375rem",
     padding: "0.0625rem 0.375rem",
     fontSize: "0.75rem",
@@ -158,12 +135,7 @@ export const dateDetectionTheme = EditorView.theme({
     borderRadius: "0.375rem",
     cursor: "pointer",
   },
-  ".cm-md-create-event:hover": {
+  ".cm-md-create-task-prompt:hover": {
     backgroundColor: "var(--accent)",
-  },
-  ".cm-md-event-created": {
-    marginLeft: "0.375rem",
-    fontSize: "0.75rem",
-    color: "var(--muted-foreground)",
   },
 });

@@ -1,7 +1,7 @@
 // Matches AddEventDialog's own default when no end time is given. Lives
 // here (not in dispatch.ts, a "use server" file that can only export async
-// functions) so both dispatch.ts and createEventFromNoteTextCore
-// (lib/actions/events.ts) share one fallback instead of two copies.
+// functions) so dispatch.ts can import it without a "use server" export
+// violation.
 export const DEFAULT_EVENT_DURATION_MS = 3_600_000;
 
 // A trailing duration phrase ("for 1 hour", "for 30 minutes") that chrono

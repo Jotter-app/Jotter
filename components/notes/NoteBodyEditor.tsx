@@ -121,7 +121,7 @@ export const NoteBodyEditor = forwardRef<
     onWikilinkClick?: (target: WikilinkTarget) => void;
     linkedTasks?: LinkedTaskInfo[];
     onToggleLinkedTask?: (taskId: string, checked: boolean, dueAt: string | null) => void;
-    onCreateEvent?: (lineText: string, markerInsertPos: number) => void;
+    onCreateTaskFromDate?: (lineFrom: number, lineTo: number, lineText: string) => void;
     queryableTasks?: QueryableTask[];
     queryableNotes?: QueryableNote[];
     onToggleQueryTask?: (taskId: string, checked: boolean, dueAt: string | null) => void;
@@ -136,7 +136,7 @@ export const NoteBodyEditor = forwardRef<
     onWikilinkClick,
     linkedTasks = [],
     onToggleLinkedTask,
-    onCreateEvent,
+    onCreateTaskFromDate,
     queryableTasks = [],
     queryableNotes = [],
     onToggleQueryTask,
@@ -150,7 +150,7 @@ export const NoteBodyEditor = forwardRef<
   const onWikilinkClickRef = useRef(onWikilinkClick);
   const linkedTasksRef = useRef(linkedTasks);
   const onToggleLinkedTaskRef = useRef(onToggleLinkedTask);
-  const onCreateEventRef = useRef(onCreateEvent);
+  const onCreateTaskFromDateRef = useRef(onCreateTaskFromDate);
   const queryableTasksRef = useRef(queryableTasks);
   const queryableNotesRef = useRef(queryableNotes);
   const onToggleQueryTaskRef = useRef(onToggleQueryTask);
@@ -169,7 +169,7 @@ export const NoteBodyEditor = forwardRef<
     onWikilinkClickRef.current = onWikilinkClick;
     linkedTasksRef.current = linkedTasks;
     onToggleLinkedTaskRef.current = onToggleLinkedTask;
-    onCreateEventRef.current = onCreateEvent;
+    onCreateTaskFromDateRef.current = onCreateTaskFromDate;
     queryableTasksRef.current = queryableTasks;
     queryableNotesRef.current = queryableNotes;
     onToggleQueryTaskRef.current = onToggleQueryTask;
@@ -292,7 +292,7 @@ export const NoteBodyEditor = forwardRef<
         ),
         lineEmbedPlugin,
         lineEmbedTheme,
-        createDateDetectionPlugin((lineText, markerInsertPos) => onCreateEventRef.current?.(lineText, markerInsertPos)),
+        createDateDetectionPlugin((lineFrom, lineTo, lineText) => onCreateTaskFromDateRef.current?.(lineFrom, lineTo, lineText)),
         dateDetectionTheme,
         createEmbeddedQueryPlugin(
           () => queryableTasksRef.current,

@@ -8,20 +8,20 @@
 Tier 2 of the cross-pillar interconnectivity roadmap: three editor-level features, all extensions of the same CodeMirror plugin architecture the note body editor already uses (`wikilinkPlugin.ts`, `liveMarkdownPlugin.ts`, `lineEmbedPlugin.ts` in `components/notes/editor/`), plus the `chrono-node` date parsing this app already ships for quick-add.
 
 1. **Line-to-task** — a new toolbar button converts the current line into a linked task in place, reusing the exact checkbox+marker format `processNoteTaskCommands` already produces for `/task create` lines.
-2. **In-note date detection** — typing a date/time phrase on its own decorates it with a "Create event?" prompt; clicking it creates a standalone calendar event.
+2. **In-note date detection** — typing a date/time phrase on its own decorates it with a "Create task?" prompt; clicking it runs the exact same whole-line-to-checkbox conversion as Part 1, just triggered by a detected date instead of a manual toolbar click. (Originally scoped as "creates a standalone event" — revised to create a task instead, since a due-dated task already surfaces on both `/tasks` and `/calendar`, while a standalone event only ever showed up on the calendar and had no note link.)
 3. **Live embedded queries** — a `?tasks #tag` / `?notes #tag` line renders a live, filtered list of matching tasks or notes directly in the editor, Dataview-style.
 
 None of these need new tables. Query filtering runs against the same kind of page-loaded snapshot (`allNoteTitles`, `linkedTasks`, etc.) the editor already uses for wikilink autocomplete and linked-task checkboxes — not a live subscription.
 
 ## Goals
 
-- Converting a line of prose into a real, linked task (or a detected date into a real event) takes one click, no retyping.
+- Converting a line of prose (or a detected date within one) into a real, linked task takes one click, no retyping.
 - A note can show a live, filtered view of tasks or notes elsewhere in the app without leaving the editor.
-- Every new interaction reuses an existing CM6 extension pattern, existing creation logic (`insertTaskCore`, `insertEventCore`), and the existing task-marker idempotency convention — no parallel creation paths.
+- Every new interaction reuses an existing CM6 extension pattern, existing creation logic (`insertTaskCore`, `createTaskFromNoteLine`), and the existing task-marker idempotency convention — no parallel creation paths.
 
 ## Non-Goals
 
-- **No event↔note link.** `events` has no `linked_note_id` column yet (that's Tier 3, alongside meeting-note generation and the post-meeting debrief). An event created from in-note date detection is a standalone event, not a linked one — the note doesn't show "this note created that event" anywhere beyond the inert marker that keeps it from being re-created.
+- **No event creation from the note editor at all.** Date detection creates a task, not an event — see Part 2. `events` still has no `linked_note_id` column (that's Tier 3, alongside meeting-note generation and the post-meeting debrief); this doc no longer needs that gap, since nothing here creates events anymore.
 - **No event-tag filtering in embedded queries.** `taggables.taggable_type` only accepts `'note'` and `'task'` today (Tier 3 extends it to `'event'` for tag-page dashboards). Embedded queries are scoped to `?tasks` and `?notes` only.
 - **Line-to-task operates on the whole line, not the exact character selection.** Despite the brainstormed feature's "select text" framing, the implementation follows `toggleLinePrefix`'s existing whole-line precedent (`doc.lineAt(selection.main.head)`) rather than gating on a non-empty selection — simpler, and a checkbox needs to be the start of its line for `liveMarkdownPlugin`'s `TaskMarker` handling to recognize it at all. Placing the cursor anywhere on a line and clicking the button converts that whole line.
 - **One date match per line, one query per line.** Both new line-scanning plugins stop at the first match, mirroring `parseQuickAdd`'s own "first chrono match wins" behavior. A line with two date phrases only gets a prompt for the first; a line can't combine two `?` queries.
@@ -109,72 +109,41 @@ Because the replacement line is byte-for-byte what `processNoteTaskCommands` alr
 - **Manual verification**: type a line with a date and a tag, place the cursor on it, click the new toolbar button; confirm the line becomes a checked-off-able checkbox, the task appears on `/tasks` with the right due date and tag, and toggling the checkbox in either place stays in sync.
 - Full existing suite must stay green.
 
-## Part 2 — In-Note Date Detection → "Create Event?"
+## Part 2 — In-Note Date Detection → "Create Task?"
 
 ### Design
 
-**`lib/jotter/dispatch.ts`**: `DEFAULT_EVENT_DURATION_MS` (currently a private `const`) becomes `export const` — this is the same 1-hour fallback `AddEventDialog` and Jotter's implicit routing already use when a detected date has no explicit end, and the new plugin needs the identical value rather than a second hardcoded copy.
+Deliberately **not** a parallel creation path: clicking the prompt runs the exact same whole-line-to-checkbox conversion Part 1's toolbar button already does (`createTaskFromNoteLine` → `formatTaskCheckboxLine`). The only thing this part adds is a *second trigger* for that conversion — a decoration that reacts to a detected date instead of requiring a manual click — plus the guard that keeps the two triggers from fighting each other.
 
-**`lib/actions/events.ts`** gains, alongside `insertEventCore`:
+**`components/notes/editor/dateDetectionPlugin.ts`** (new) — structured like `lineEmbedPlugin.ts`: for every visible line not touched by the current selection (so a line being actively typed on isn't interrupted) and not already a task checkbox line, run `chrono.parse(line.text, referenceDate, { forwardDate: true })`. On a match, mark the matched span (subtle dashed underline) and append a widget decoration right after it: a small "Create task?" button.
+
+The "already a task checkbox line" guard (`/^\s*-\s*\[[ xX]\]/`) is what makes this safe to compose with Part 1: once a line is converted, its own `(due Aug 29, 2:00 PM)` suffix would otherwise look like a fresh, unrelated date match on re-render and offer to convert the same line again. Skipping any line that already starts with `- [ ]`/`- [x]` avoids that — and doubles as this feature's idempotency mechanism, replacing the separate `<!-- event:<uuid> -->` marker/checkmark-badge scheme the standalone-event version needed (not needed here: once converted, the line simply stops matching the plugin's own trigger).
+
+Clicking the button doesn't do the async work itself — like `onWikilinkClick`, it calls a callback threaded down from `NoteEditor.tsx` via a `NoteBodyEditor` prop, `onCreateTaskFromDate?: (lineFrom: number, lineTo: number, lineText: string) => void`, passing the *whole line's* current range and text (not just the matched date span — the conversion replaces the entire line, same as Part 1). `NoteEditor.tsx`:
 ```ts
-export async function createEventFromNoteTextCore(
-  supabase: SupabaseClient<Database>,
-  userId: string,
-  lineText: string
-): Promise<{ ok: boolean; eventId: string | null }> {
-  const { title, dueAt, endAt } = parseQuickAdd(lineText.trim());
-  if (!title || !dueAt) return { ok: false, eventId: null };
-  const result = await insertEventCore(supabase, userId, {
-    title,
-    startAt: dueAt.toISOString(),
-    endAt: (endAt ?? new Date(dueAt.getTime() + DEFAULT_EVENT_DURATION_MS)).toISOString(),
-  });
-  return { ok: result.ok, eventId: result.eventId };
-}
-
-export async function createEventFromNoteText(lineText: string) {
-  const { supabase, userId } = await currentUserId();
-  if (!userId) return { ok: false, eventId: null };
-  const result = await createEventFromNoteTextCore(supabase, userId, lineText);
-  if (result.ok) {
-    revalidatePath("/calendar");
-    revalidatePath("/tasks");
-  }
-  return result;
-}
-```
-Same `parseQuickAdd` reuse as Part 1 — the title is the line with the matched date phrase stripped out, exactly like quick-add's own title derivation.
-
-**`components/notes/editor/dateDetectionPlugin.ts`** (new) — structured like `lineEmbedPlugin.ts`: for every visible line not touched by the current selection (so a line being actively typed on isn't interrupted), run `chrono.parse(line.text, referenceDate, { forwardDate: true })`. On a match:
-- If the line already contains an `<!-- event:<uuid> -->` marker, hide the marker text and render a small inert "✓ Event created" badge instead of a button (idempotency, mirroring `TASK_MARKER_COMMENT`'s exact role in `liveMarkdownPlugin`).
-- Otherwise, mark the matched span (subtle underline) and append a widget decoration right after it: a small "Create event?" button.
-
-Clicking the button doesn't do the async work itself — like `onWikilinkClick`, it calls a callback threaded down from `NoteEditor.tsx` via a new `NoteBodyEditor` prop, `onCreateEvent?: (lineText: string, markerInsertPos: number) => void`, passing the line's current text and the absolute doc position right after the matched date span. `NoteEditor.tsx`:
-```ts
-function handleCreateEventFromLine(lineText: string, markerInsertPos: number) {
+function handleCreateTaskFromDate(lineFrom: number, lineTo: number, lineText: string) {
   startTransition(async () => {
-    const result = await createEventFromNoteText(lineText);
-    if (result.ok && result.eventId) {
-      withView((view) =>
-        view.dispatch({ changes: { from: markerInsertPos, to: markerInsertPos, insert: `<!-- event:${result.eventId} -->` } })
-      );
-    }
+    const result = await createTaskFromNoteLine(note.id, lineText);
+    const replacementLine = result.replacementLine;
+    if (!result.ok || !replacementLine) return;
+    withView((view) => view.dispatch({ changes: { from: lineFrom, to: lineTo, insert: replacementLine } }));
   });
 }
 ```
-The marker is only written after the server confirms the event exists — unlike the checkbox widget's optimistic local toggle, there's a real server-generated id to embed, so the doc mutation has to wait for the round trip.
+This is Part 1's `handleCreateTaskFromLine` in every way except where `lineFrom`/`lineTo`/`lineText` come from: Part 1 reads them from the cursor position at click time, this reads them from the plugin's detected line at click time.
 
 ### Error Handling & Edge Cases
 
-- Date phrase inside an already-processed `/task create` command line: `findTaskCommands`/`processNoteTaskCommands` only fire on save and only match lines starting with `/task create`; the date-detection plugin runs independently at render time and would still offer to create a standalone event alongside the linked task. Accepted as a minor overlap rather than special-cased — the two features solve different problems (a due-dated task vs. a calendar event) and a user typing `/task create "..."` is already past the point of wanting a date-detection prompt.
-- Ambiguous/ low-confidence chrono matches (e.g. a lone number that could be a date): same false-positive risk `parseQuickAdd` already accepts everywhere else in this app; no additional confidence filtering.
-- Event creation fails server-side: no marker inserted, the button stays clickable, next click retries.
-- Line edited after the button renders but before it's clicked: the click handler reads `line.text` fresh at click time (via the ref-backed closure, same as every other menu/handler in this editor), so it always acts on current text, not stale text from when the decoration was built.
+- Date phrase inside an already-processed `/task create` command line: that line already starts with `- [ ]` by the time `processNoteTaskCommands` runs on save, so the checkbox-line guard excludes it from date detection too — no double-prompt.
+- Ambiguous/low-confidence chrono matches (e.g. a lone number that could be a date): same false-positive risk `parseQuickAdd` already accepts everywhere else in this app; no additional confidence filtering.
+- Task creation fails server-side: nothing is dispatched, the line (and its date-detection prompt) is left exactly as it was — next click retries.
+- Line edited after the button renders but before it's clicked: the click handler reads the line fresh at click time (via the ref-backed closure, same as every other menu/handler in this editor), so it always acts on current text, not stale text from when the decoration was built.
+- A line with a date phrase *and* other content (e.g. "Meeting with the team tomorrow 3pm to discuss Q4 planning"): converts the whole line, same as Part 1's own accepted trade-off — the date moves into the checkbox's `(due ...)` suffix rather than staying inline, and the rest of the sentence becomes the task title.
 
 ### Testing Approach
 
-- **Unit tests**: none new beyond what `parseQuickAdd`/`chrono-node` already cover — this part is wiring, not new parsing logic.
-- **Manual verification**: type "Standup tomorrow 9am" on its own line, confirm the date phrase gets underlined and a "Create event?" button appears; click it, confirm the event shows up on `/calendar` with a 1-hour default duration and the button is replaced with a checkmark; reload the note and confirm the checkmark (not a fresh button) still shows.
+- **Unit tests**: none new beyond what Part 1 and `chrono-node` already cover — this part is a second trigger for existing conversion logic, not new parsing.
+- **Manual verification**: type "Standup tomorrow 9am" on its own line, confirm the date phrase gets underlined and a "Create task?" button appears; click it, confirm the line becomes a checkbox, the task appears on both `/tasks` and `/calendar` with the right due date, and it's linked to the note (shows in "linked to N tasks"); confirm the converted line's own `(due ...)` text does *not* get a second prompt.
 - Full existing suite must stay green.
 
 ## Part 3 — Live Embedded Queries
