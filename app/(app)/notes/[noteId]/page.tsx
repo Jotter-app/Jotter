@@ -51,7 +51,9 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
     supabase.from("taggables").select("taggable_id, tags(name)").eq("taggable_type", "note"),
     // ?events #tag / ?events due:today (Tier 3) needs the same kind of
     // full, unscoped snapshot as queryableTasks/queryableNotes above.
-    supabase.from("events").select("id, title, start_at").order("start_at"),
+    // linked_note_id is also selected here (rather than a second query) to
+    // derive linkedEvents below -- Tier 4's linked-mentions panel.
+    supabase.from("events").select("id, title, start_at, linked_note_id").order("start_at"),
     supabase.from("taggables").select("taggable_id, tags(name)").eq("taggable_type", "event"),
   ]);
 
@@ -63,6 +65,10 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
   const linkedTasks = (taskNoteLinks ?? []).flatMap((row) => (row.tasks ? [row.tasks] : []));
   const backlinks = (noteLinks ?? []).flatMap((row) => (row.notes ? [row.notes] : []));
   const breadcrumb = folderBreadcrumb(folders ?? [], note.folder_id);
+  // Tier 4's linked-mentions panel: any event that uses this note as its
+  // generated meeting note. Not exclusively one-to-one (nothing in the
+  // schema enforces that), so this stays a list, not a single optional value.
+  const linkedEvents = (allEvents ?? []).filter((event) => event.linked_note_id === noteId);
 
   const tagNamesByTaskId = new Map<string, string[]>();
   for (const row of taskTaggables ?? []) {
@@ -132,6 +138,7 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
         queryableTasks={queryableTasks}
         queryableNotes={queryableNotes}
         queryableEvents={queryableEvents}
+        linkedEvents={linkedEvents}
       />
     </div>
   );

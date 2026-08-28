@@ -30,6 +30,7 @@ type TaskOption = {
   priority: number;
 };
 type Backlink = { id: string; title: string };
+type LinkedEvent = { id: string; title: string; start_at: string };
 
 export function NoteEditor({
   note,
@@ -43,6 +44,7 @@ export function NoteEditor({
   queryableTasks,
   queryableNotes,
   queryableEvents,
+  linkedEvents,
 }: {
   note: Note;
   allTags: Tag[];
@@ -55,6 +57,7 @@ export function NoteEditor({
   queryableTasks: QueryableTask[];
   queryableNotes: QueryableNote[];
   queryableEvents: QueryableEvent[];
+  linkedEvents: LinkedEvent[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -210,6 +213,20 @@ export function NoteEditor({
                     className="rounded-full border bg-muted px-2 py-0.5 text-xs hover:bg-accent"
                   >
                     {backlink.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {linkedEvents.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">Meeting for</span>
+            <ul className="flex flex-wrap gap-1.5">
+              {linkedEvents.map((event) => (
+                <li key={event.id}>
+                  <Link href="/calendar" className="rounded-full border bg-muted px-2 py-0.5 text-xs hover:bg-accent">
+                    {event.title} &middot; {format(new Date(event.start_at), "MMM d")}
                   </Link>
                 </li>
               ))}
