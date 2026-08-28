@@ -58,4 +58,24 @@ describe("parseEmbeddedQuery", () => {
       tag: "project-x",
     });
   });
+
+  it("parses a bare ?events query", () => {
+    expect(parseEmbeddedQuery("?events")).toMatchObject({ pillar: "event", tag: undefined });
+  });
+
+  it("parses a tag and due filter on events", () => {
+    expect(parseEmbeddedQuery("?events #standup due:today")).toMatchObject({
+      pillar: "event",
+      tag: "standup",
+      due: "today",
+    });
+  });
+
+  it("still parses status/due tokens on events even though runEmbeddedQuery only applies due:today to them", () => {
+    expect(parseEmbeddedQuery("?events status:open due:week")).toMatchObject({
+      pillar: "event",
+      status: "open",
+      due: "week",
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import * as chrono from "chrono-node";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate, WidgetType } from "@codemirror/view";
+import { parseEmbeddedQuery } from "@/lib/jotter/parseEmbeddedQuery";
 
 // A line that's already a task checkbox (either hand-typed, from
 // "/task create", or from this plugin's own previous click) never gets a
@@ -8,6 +9,12 @@ import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate
 // PM)" suffix would itself look like a fresh date match and offer to
 // convert the line again.
 const TASK_CHECKBOX_LINE = /^\s*-\s*\[[ xX]\]/;
+
+// A heading never gets a prompt either -- converting "## Tasks due today"
+// into a checkbox task doesn't make sense, and auto-generated content
+// (daily notes, weekly reviews) routinely has headings like "Today's
+// events" whose own wording would otherwise trip this plugin over itself.
+const HEADING_LINE = /^\s*#{1,6}\s/;
 
 class CreateTaskWidget extends WidgetType {
   constructor(
@@ -70,6 +77,11 @@ function buildDateDecorations(
       if (activeLines.has(n)) continue;
       const line = doc.line(n);
       if (TASK_CHECKBOX_LINE.test(line.text)) continue;
+      if (HEADING_LINE.test(line.text)) continue;
+      // A ?tasks/?notes/?events query line is already fully handled by
+      // embeddedQueryPlugin (which replaces it entirely) -- its own filter
+      // syntax (e.g. "due:today") shouldn't be scanned for dates too.
+      if (parseEmbeddedQuery(line.text)) continue;
 
       // Only the first match per line, mirroring parseQuickAdd's own
       // "first chrono match wins" behavior -- one prompt per line, max.

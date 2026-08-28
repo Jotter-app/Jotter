@@ -13,7 +13,7 @@ import { lineEmbedPlugin, lineEmbedTheme } from "@/components/notes/editor/lineE
 import { createDateDetectionPlugin, dateDetectionTheme } from "@/components/notes/editor/dateDetectionPlugin";
 import { createEmbeddedQueryPlugin, embeddedQueryTheme } from "@/components/notes/editor/embeddedQueryPlugin";
 import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
-import type { QueryableNote, QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
+import type { QueryableEvent, QueryableNote, QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
 
 interface SlashCommand {
   keyword: string;
@@ -124,6 +124,7 @@ export const NoteBodyEditor = forwardRef<
     onCreateTaskFromDate?: (lineFrom: number, lineTo: number, lineText: string) => void;
     queryableTasks?: QueryableTask[];
     queryableNotes?: QueryableNote[];
+    queryableEvents?: QueryableEvent[];
     onToggleQueryTask?: (taskId: string, checked: boolean, dueAt: string | null) => void;
   }
 >(function NoteBodyEditor(
@@ -139,6 +140,7 @@ export const NoteBodyEditor = forwardRef<
     onCreateTaskFromDate,
     queryableTasks = [],
     queryableNotes = [],
+    queryableEvents = [],
     onToggleQueryTask,
   },
   ref
@@ -153,6 +155,7 @@ export const NoteBodyEditor = forwardRef<
   const onCreateTaskFromDateRef = useRef(onCreateTaskFromDate);
   const queryableTasksRef = useRef(queryableTasks);
   const queryableNotesRef = useRef(queryableNotes);
+  const queryableEventsRef = useRef(queryableEvents);
   const onToggleQueryTaskRef = useRef(onToggleQueryTask);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const menuRef = useRef<MenuState | null>(null);
@@ -172,6 +175,7 @@ export const NoteBodyEditor = forwardRef<
     onCreateTaskFromDateRef.current = onCreateTaskFromDate;
     queryableTasksRef.current = queryableTasks;
     queryableNotesRef.current = queryableNotes;
+    queryableEventsRef.current = queryableEvents;
     onToggleQueryTaskRef.current = onToggleQueryTask;
     menuRef.current = menu;
   });
@@ -297,6 +301,7 @@ export const NoteBodyEditor = forwardRef<
         createEmbeddedQueryPlugin(
           () => queryableTasksRef.current,
           () => queryableNotesRef.current,
+          () => queryableEventsRef.current,
           (taskId, checked, dueAt) => onToggleQueryTaskRef.current?.(taskId, checked, dueAt)
         ),
         embeddedQueryTheme,

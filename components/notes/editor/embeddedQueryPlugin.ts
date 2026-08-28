@@ -2,13 +2,19 @@ import { format } from "date-fns";
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView, ViewPlugin, type ViewUpdate, WidgetType } from "@codemirror/view";
 import { parseEmbeddedQuery } from "@/lib/jotter/parseEmbeddedQuery";
-import { runEmbeddedQuery, type EmbeddedQueryResult, type QueryableNote, type QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
+import {
+  runEmbeddedQuery,
+  type EmbeddedQueryResult,
+  type QueryableEvent,
+  type QueryableNote,
+  type QueryableTask,
+} from "@/lib/jotter/runEmbeddedQuery";
 import { formatRelativeDays } from "@/lib/dates/relativeDays";
 
 class EmbeddedQueryWidget extends WidgetType {
   constructor(
-    private readonly result: EmbeddedQueryResult<QueryableTask | QueryableNote>,
-    private readonly pillar: "task" | "note",
+    private readonly result: EmbeddedQueryResult<QueryableTask | QueryableNote | QueryableEvent>,
+    private readonly pillar: "task" | "note" | "event",
     private readonly onToggleTask: (taskId: string, checked: boolean, dueAt: string | null) => void
   ) {
     super();
@@ -28,7 +34,8 @@ class EmbeddedQueryWidget extends WidgetType {
     if (this.result.items.length === 0) {
       const empty = document.createElement("p");
       empty.className = "cm-md-query-empty";
-      empty.textContent = this.pillar === "task" ? "No matching tasks." : "No matching notes.";
+      empty.textContent =
+        this.pillar === "task" ? "No matching tasks." : this.pillar === "event" ? "No matching events." : "No matching notes.";
       wrapper.appendChild(empty);
       return wrapper;
     }
@@ -64,13 +71,26 @@ class EmbeddedQueryWidget extends WidgetType {
           due.textContent = `${formatRelativeDays(dueDate)} · ${format(dueDate, "MMM d, h:mm a")}`;
           row.appendChild(due);
         }
-      } else {
+      } else if (this.pillar === "note") {
         const note = item as QueryableNote;
         const link = document.createElement("a");
         link.href = `/notes/${note.id}`;
         link.className = "cm-md-query-title cm-md-query-link";
         link.textContent = note.title || "Untitled";
         row.appendChild(link);
+      } else {
+        // Plain, non-clickable text -- there's no per-event page and no
+        // confirmed ?date= param on /calendar to link to safely.
+        const event = item as QueryableEvent;
+        const title = document.createElement("span");
+        title.className = "cm-md-query-title";
+        title.textContent = event.title;
+        row.appendChild(title);
+
+        const time = document.createElement("span");
+        time.className = "cm-md-query-due";
+        time.textContent = format(new Date(event.start_at), "h:mm a");
+        row.appendChild(time);
       }
 
       list.appendChild(row);
@@ -106,6 +126,7 @@ function buildQueryDecorations(
   view: EditorView,
   getTasks: () => QueryableTask[],
   getNotes: () => QueryableNote[],
+  getEvents: () => QueryableEvent[],
   onToggleTask: (taskId: string, checked: boolean, dueAt: string | null) => void
 ): DecorationSet {
   const { state } = view;
@@ -129,7 +150,7 @@ function buildQueryDecorations(
       const query = parseEmbeddedQuery(line.text);
       if (!query) continue;
 
-      const result = runEmbeddedQuery(query, { tasks: getTasks(), notes: getNotes() });
+      const result = runEmbeddedQuery(query, { tasks: getTasks(), notes: getNotes(), events: getEvents() });
       entries.push({
         from: line.from,
         to: line.to,
@@ -150,17 +171,18 @@ function buildQueryDecorations(
 export function createEmbeddedQueryPlugin(
   getTasks: () => QueryableTask[],
   getNotes: () => QueryableNote[],
+  getEvents: () => QueryableEvent[],
   onToggleTask: (taskId: string, checked: boolean, dueAt: string | null) => void
 ) {
   return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
       constructor(view: EditorView) {
-        this.decorations = buildQueryDecorations(view, getTasks, getNotes, onToggleTask);
+        this.decorations = buildQueryDecorations(view, getTasks, getNotes, getEvents, onToggleTask);
       }
       update(update: ViewUpdate) {
         if (update.docChanged || update.selectionSet || update.viewportChanged) {
-          this.decorations = buildQueryDecorations(update.view, getTasks, getNotes, onToggleTask);
+          this.decorations = buildQueryDecorations(update.view, getTasks, getNotes, getEvents, onToggleTask);
         }
       }
     },

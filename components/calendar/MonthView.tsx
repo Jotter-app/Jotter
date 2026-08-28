@@ -13,6 +13,7 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Task = Database["public"]["Tables"]["tasks"]["Row"] & { due_at: string };
+type Tag = Database["public"]["Tables"]["tags"]["Row"];
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -22,12 +23,16 @@ export function MonthView({
   tasksWithDueDate,
   linkedTasksById,
   defaultEventCreatesTask,
+  allTags,
+  tagsByEventId,
 }: {
   monthDate: Date;
   events: Event[];
   tasksWithDueDate: Task[];
   linkedTasksById?: Map<string, LinkedTask>;
   defaultEventCreatesTask?: boolean;
+  allTags?: Tag[];
+  tagsByEventId?: Map<string, Tag[]>;
 }) {
   const [addEventDate, setAddEventDate] = useState<Date | null>(null);
   const { sensors, handleDragEnd } = useEventDragAndDrop();
@@ -53,6 +58,8 @@ export function MonthView({
             dimmed={!isSameMonth(date, monthDate)}
             onAddEvent={setAddEventDate}
             linkedTasksById={linkedTasksById}
+            allTags={allTags}
+            tagsByEventId={tagsByEventId}
           />
         ))}
       </div>

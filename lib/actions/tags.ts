@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { currentUserId } from "@/lib/supabase/session";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 
-export type TaggableType = "task" | "note";
+export type TaggableType = "task" | "note" | "event";
 
 function pathFor(taggableType: TaggableType) {
-  return taggableType === "task" ? "/tasks" : "/notes";
+  if (taggableType === "task") return "/tasks";
+  if (taggableType === "event") return "/calendar";
+  return "/notes";
 }
 
 export async function createAndAssignTag(
@@ -75,4 +77,5 @@ export async function deleteTagGlobally(tagId: string) {
 
   revalidatePath("/tasks");
   revalidatePath("/notes");
+  revalidatePath("/calendar");
 }

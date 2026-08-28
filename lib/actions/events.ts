@@ -1,11 +1,14 @@
 "use server";
 
 import { z } from "zod";
+import { format } from "date-fns";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
 import { insertTaskCore } from "@/lib/actions/tasks";
+import { insertNoteCore } from "@/lib/actions/notes";
 import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
+import { syncEventDebriefReminder } from "@/lib/reminders/syncEventDebriefReminder";
 import type { Database } from "@/lib/supabase/database.types";
 
 const eventSchema = z.object({
@@ -127,7 +130,7 @@ export async function rescheduleEventCore(
 ) {
   const { data: before } = await supabase
     .from("events")
-    .select("start_at, linked_task_id")
+    .select("start_at, linked_task_id, linked_note_id")
     .eq("id", eventId)
     .single();
 
@@ -147,6 +150,12 @@ export async function rescheduleEventCore(
       await supabase.from("tasks").update({ due_at: newDueAt }).eq("id", before.linked_task_id);
       await syncTaskReminder(supabase, userId, before.linked_task_id, newDueAt);
     }
+  }
+
+  // Same idea for the debrief reminder (Tier 3) -- only events with a
+  // linked note have one, per syncEventDebriefReminder's own contract.
+  if (before?.linked_note_id) {
+    await syncEventDebriefReminder(supabase, userId, eventId, newEndAt);
   }
 }
 
@@ -187,4 +196,48 @@ export async function deleteEvent(eventId: string, deleteLinkedTask = false) {
 
   revalidatePath("/calendar");
   revalidatePath("/tasks");
+}
+
+// Creates a note pre-filled with the event's date/time range and links it
+// back via events.linked_note_id, then arms the post-meeting debrief
+// reminder for it. Idempotent -- re-clicking on an event that already has
+// a note just returns that note's id rather than creating a duplicate.
+export async function generateMeetingNoteCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  eventId: string
+): Promise<{ ok: boolean; noteId: string | null }> {
+  const { data: event } = await supabase
+    .from("events")
+    .select("title, start_at, end_at, linked_note_id")
+    .eq("id", eventId)
+    .single();
+  if (!event) return { ok: false, noteId: null };
+  if (event.linked_note_id) return { ok: true, noteId: event.linked_note_id };
+
+  const range = `${format(new Date(event.start_at), "MMM d, yyyy · h:mm a")}–${format(new Date(event.end_at), "h:mm a")}`;
+  const result = await insertNoteCore(supabase, userId, {
+    folderId: null,
+    title: event.title,
+    bodyMarkdown: `**${range}**\n\n`,
+  });
+  if (!result.ok || !result.noteId) return { ok: false, noteId: null };
+
+  await supabase.from("events").update({ linked_note_id: result.noteId }).eq("id", eventId);
+  await syncEventDebriefReminder(supabase, userId, eventId, event.end_at);
+
+  return { ok: true, noteId: result.noteId };
+}
+
+export async function generateMeetingNote(eventId: string) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return { ok: false, noteId: null };
+
+  const result = await generateMeetingNoteCore(supabase, userId, eventId);
+
+  if (result.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/notes");
+  }
+  return result;
 }

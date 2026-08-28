@@ -80,13 +80,17 @@ async function processReminder(
     title = task?.title ? `Due: ${task.title}` : "Task reminder";
     url = "/tasks";
   } else if (reminder.event_id) {
+    // event_id reminders are always a post-meeting debrief (Tier 3) --
+    // fired at end_at by whoever created the row (syncEventDebriefReminder),
+    // never at start_at, so the copy and destination both point at "add
+    // notes for the meeting that just ended," not "it's starting."
     const { data: event } = await supabase
       .from("events")
-      .select("title")
+      .select("title, linked_note_id")
       .eq("id", reminder.event_id)
       .maybeSingle();
-    title = event?.title ? `Starting: ${event.title}` : "Event reminder";
-    url = "/calendar";
+    title = event?.title ? `Add notes? ${event.title}` : "Meeting ended";
+    url = event?.linked_note_id ? `/notes/${event.linked_note_id}` : "/calendar";
   }
 
   let delivered = false;

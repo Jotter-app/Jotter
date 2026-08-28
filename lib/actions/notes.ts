@@ -8,6 +8,7 @@ import { extractTags } from "@/lib/markdown/extractTags";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 import { processNoteTaskCommands } from "@/lib/jotter/processNoteCommands";
 import { syncNoteLinksCore } from "@/lib/actions/noteLinks";
+import { syncEventDebriefReminder } from "@/lib/reminders/syncEventDebriefReminder";
 import type { Database } from "@/lib/supabase/database.types";
 
 export interface InsertNoteParams {
@@ -81,8 +82,22 @@ export async function deleteNote(noteId: string) {
   const { supabase, userId } = await currentUserId();
   if (!userId) return;
 
+  // A note can be the generated meeting note for an event (Tier 3) --
+  // clear that event's debrief reminder before the FK's `on delete set
+  // null` clears linked_note_id out from under it, so the reminder doesn't
+  // outlive the note it was supposed to open.
+  const { data: linkedEvent } = await supabase
+    .from("events")
+    .select("id")
+    .eq("linked_note_id", noteId)
+    .maybeSingle();
+  if (linkedEvent) {
+    await syncEventDebriefReminder(supabase, userId, linkedEvent.id, null);
+  }
+
   await supabase.from("notes").delete().eq("id", noteId);
   revalidatePath("/notes");
+  if (linkedEvent) revalidatePath("/calendar");
 }
 
 export async function moveNote(noteId: string, folderId: string | null) {

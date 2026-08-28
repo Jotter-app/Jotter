@@ -40,6 +40,7 @@ export type Database = {
           created_at: string
           end_at: string
           id: string
+          linked_note_id: string | null
           linked_task_id: string | null
           recurrence_rule: string | null
           start_at: string
@@ -51,6 +52,7 @@ export type Database = {
           created_at?: string
           end_at: string
           id?: string
+          linked_note_id?: string | null
           linked_task_id?: string | null
           recurrence_rule?: string | null
           start_at: string
@@ -62,6 +64,7 @@ export type Database = {
           created_at?: string
           end_at?: string
           id?: string
+          linked_note_id?: string | null
           linked_task_id?: string | null
           recurrence_rule?: string | null
           start_at?: string
@@ -69,6 +72,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "events_linked_note_id_fkey"
+            columns: ["linked_note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "events_linked_task_id_fkey"
             columns: ["linked_task_id"]

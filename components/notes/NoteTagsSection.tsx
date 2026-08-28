@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import Link from "next/link";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
 import { deleteTagGlobally } from "@/lib/actions/tags";
 import type { Database } from "@/lib/supabase/database.types";
@@ -9,10 +10,10 @@ type Tag = Database["public"]["Tables"]["tags"]["Row"];
 
 // Mirrors TagFilterRow's delete mechanism (ConfirmDeleteButton +
 // deleteTagGlobally), but as a collapsible section like the Tasks page's
-// Completed/Archived ones rather than a filter row -- the Notes page has
-// no per-tag note filtering to link pills to, this is purely a management/
-// delete surface for the note tag vocabulary (notably including tags
-// hidden from the Tasks page's own list when they have no task attachment).
+// Completed/Archived ones rather than a filter row -- unlike TagFilterRow
+// (which repurposes a click into an in-place filter), each pill's name here
+// links to that tag's /tags/{id} dashboard, since there was no existing
+// click behavior on these pills to preserve.
 export function NoteTagsSection({ tags }: { tags: Tag[] }) {
   const [, startTransition] = useTransition();
 
@@ -37,7 +38,9 @@ export function NoteTagsSection({ tags }: { tags: Tag[] }) {
             key={tag.id}
             className="inline-flex items-center gap-1 rounded-full border border-accent px-2 py-0.5 text-[11px] text-accent-700"
           >
-            {tag.name}
+            <Link href={`/tags/${tag.id}`} className="hover:underline">
+              {tag.name}
+            </Link>
             <ConfirmDeleteButton
               title={`Delete tag "${tag.name}"?`}
               description="This removes it from every task and note that has it, not just this list."
