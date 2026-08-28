@@ -36,21 +36,32 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const rangeEnd = view === "month" ? endOfWeek(endOfMonth(anchorDate)) : endOfWeek(anchorDate);
 
   const supabase = await createClient();
-  const [{ data: events }, { data: tasks }, defaultEventCreatesTask] = await Promise.all([
-    supabase
-      .from("events")
-      .select()
-      .lte("start_at", rangeEnd.toISOString())
-      .gte("end_at", rangeStart.toISOString()),
-    supabase
-      .from("tasks")
-      .select()
-      .not("due_at", "is", null)
-      .is("completed_at", null)
-      .gte("due_at", rangeStart.toISOString())
-      .lte("due_at", rangeEnd.toISOString()),
-    getDefaultEventCreatesTask(),
-  ]);
+  const [{ data: events }, { data: tasks }, defaultEventCreatesTask, { data: tags }, { data: eventTaggables }] =
+    await Promise.all([
+      supabase
+        .from("events")
+        .select()
+        .lte("start_at", rangeEnd.toISOString())
+        .gte("end_at", rangeStart.toISOString()),
+      supabase
+        .from("tasks")
+        .select()
+        .not("due_at", "is", null)
+        .is("completed_at", null)
+        .gte("due_at", rangeStart.toISOString())
+        .lte("due_at", rangeEnd.toISOString()),
+      getDefaultEventCreatesTask(),
+      supabase.from("tags").select().order("name"),
+      supabase.from("taggables").select("taggable_id, tags(*)").eq("taggable_type", "event"),
+    ]);
+
+  const tagsByEventId = new Map<string, NonNullable<typeof tags>>();
+  for (const row of eventTaggables ?? []) {
+    if (!row.tags) continue;
+    const existing = tagsByEventId.get(row.taggable_id) ?? [];
+    existing.push(row.tags);
+    tagsByEventId.set(row.taggable_id, existing);
+  }
 
   const linkedTaskIds = (events ?? [])
     .map((e) => e.linked_task_id)
@@ -118,6 +129,8 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           tasksWithDueDate={tasksWithDueDate}
           linkedTasksById={linkedTasksById}
           defaultEventCreatesTask={defaultEventCreatesTask}
+          allTags={tags ?? []}
+          tagsByEventId={tagsByEventId}
         />
       ) : (
         <WeekView
@@ -126,6 +139,8 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           tasksWithDueDate={tasksWithDueDate}
           linkedTasksById={linkedTasksById}
           defaultEventCreatesTask={defaultEventCreatesTask}
+          allTags={tags ?? []}
+          tagsByEventId={tagsByEventId}
         />
       )}
     </main>

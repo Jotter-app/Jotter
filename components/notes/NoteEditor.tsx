@@ -17,7 +17,7 @@ import { saveNote, createNoteFromWikilink, setNoteStarred } from "@/lib/actions/
 import { toggleTaskComplete } from "@/lib/actions/tasks";
 import { createTaskFromNoteLine } from "@/lib/actions/taskNoteLinks";
 import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
-import type { QueryableNote, QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
+import type { QueryableEvent, QueryableNote, QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Note = Database["public"]["Tables"]["notes"]["Row"];
@@ -42,6 +42,7 @@ export function NoteEditor({
   breadcrumb,
   queryableTasks,
   queryableNotes,
+  queryableEvents,
 }: {
   note: Note;
   allTags: Tag[];
@@ -53,6 +54,7 @@ export function NoteEditor({
   breadcrumb: { id: string; name: string }[];
   queryableTasks: QueryableTask[];
   queryableNotes: QueryableNote[];
+  queryableEvents: QueryableEvent[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -232,6 +234,7 @@ export function NoteEditor({
         onCreateTaskFromDate={handleCreateTaskFromDate}
         queryableTasks={queryableTasks}
         queryableNotes={queryableNotes}
+        queryableEvents={queryableEvents}
         onToggleQueryTask={handleToggleQueryTask}
       />
 

@@ -1,16 +1,17 @@
 export interface EmbeddedQuery {
-  pillar: "task" | "note";
+  pillar: "task" | "note" | "event";
   tag?: string;
   /** Tasks only. */
   status?: "open" | "done";
-  /** Tasks only. */
+  /** Tasks: all three. Events: "today" only -- "overdue"/"week" are parsed
+   * but ignored by runEmbeddedQuery, same as status: being ignored there. */
   due?: "today" | "overdue" | "week";
 }
 
 // Requires the keyword immediately after "?" ("?tasks", not "? tasks"), so
 // an ordinary line of prose that happens to start with a literal "?" is
 // essentially never mistaken for a query.
-const QUERY_LINE = /^\?(tasks|notes)(?:\s|$)(.*)$/i;
+const QUERY_LINE = /^\?(tasks|notes|events)(?:\s|$)(.*)$/i;
 
 /**
  * Parses a Dataview-style embedded query line, e.g. "?tasks #client-x
@@ -24,7 +25,8 @@ export function parseEmbeddedQuery(line: string): EmbeddedQuery | null {
   const match = line.trim().match(QUERY_LINE);
   if (!match) return null;
 
-  const pillar: EmbeddedQuery["pillar"] = match[1].toLowerCase() === "tasks" ? "task" : "note";
+  const keyword = match[1].toLowerCase();
+  const pillar: EmbeddedQuery["pillar"] = keyword === "tasks" ? "task" : keyword === "events" ? "event" : "note";
   const rest = match[2];
   const tag = rest.match(/#([a-zA-Z][\w-]*)/)?.[1]?.toLowerCase();
 

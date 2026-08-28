@@ -11,6 +11,7 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
+type Tag = Database["public"]["Tables"]["tags"]["Row"];
 
 export function DayCell({
   date,
@@ -19,6 +20,8 @@ export function DayCell({
   dimmed,
   onAddEvent,
   linkedTasksById,
+  allTags,
+  tagsByEventId,
   className,
 }: {
   date: Date;
@@ -27,6 +30,8 @@ export function DayCell({
   dimmed?: boolean;
   onAddEvent: (date: Date) => void;
   linkedTasksById?: Map<string, LinkedTask>;
+  allTags?: Tag[];
+  tagsByEventId?: Map<string, Tag[]>;
   className?: string;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: dayKey(date) });
@@ -66,6 +71,8 @@ export function DayCell({
             key={event.id}
             event={event}
             linkedTask={event.linked_task_id ? linkedTasksById?.get(event.linked_task_id) : undefined}
+            allTags={allTags}
+            assignedTags={tagsByEventId?.get(event.id)}
           />
         ))}
         {tasksDue.map((task) => (

@@ -6,6 +6,7 @@ import { NotesTree } from "@/components/notes/NotesTree";
 import { ExportLink } from "@/components/notes/ExportLink";
 import { ImportNotesButton } from "@/components/notes/ImportNotesButton";
 import { NoteTagsSection } from "@/components/notes/NoteTagsSection";
+import { QuickNoteLinks } from "@/components/notes/QuickNoteLinks";
 import { NotesDashboard, type NoteGroup } from "@/components/notes/NotesDashboard";
 import type { NoteCardData } from "@/components/notes/NoteCard";
 
@@ -133,6 +134,7 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
             Starred
           </Link>
         </div>
+        <QuickNoteLinks />
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between px-1">
             <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">Notebooks</span>

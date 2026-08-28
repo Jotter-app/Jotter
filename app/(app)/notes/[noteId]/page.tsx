@@ -20,6 +20,8 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
     { data: folders },
     { data: taskTaggables },
     { data: noteTaggables },
+    { data: allEvents },
+    { data: eventTaggables },
   ] = await Promise.all([
     supabase.from("notes").select().eq("id", noteId).maybeSingle(),
     supabase.from("tags").select().order("name"),
@@ -47,6 +49,10 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
     // tagsByTaskId construction -- not a nested select off tasks/notes.
     supabase.from("taggables").select("taggable_id, tags(name)").eq("taggable_type", "task"),
     supabase.from("taggables").select("taggable_id, tags(name)").eq("taggable_type", "note"),
+    // ?events #tag / ?events due:today (Tier 3) needs the same kind of
+    // full, unscoped snapshot as queryableTasks/queryableNotes above.
+    supabase.from("events").select("id, title, start_at").order("start_at"),
+    supabase.from("taggables").select("taggable_id, tags(name)").eq("taggable_type", "event"),
   ]);
 
   if (!note) {
@@ -88,6 +94,21 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
     tags: tagNamesByNoteId.get(n.id) ?? [],
   }));
 
+  const tagNamesByEventId = new Map<string, string[]>();
+  for (const row of eventTaggables ?? []) {
+    if (!row.tags) continue;
+    const existing = tagNamesByEventId.get(row.taggable_id) ?? [];
+    existing.push(row.tags.name);
+    tagNamesByEventId.set(row.taggable_id, existing);
+  }
+
+  const queryableEvents = (allEvents ?? []).map((event) => ({
+    id: event.id,
+    title: event.title,
+    start_at: event.start_at,
+    tags: tagNamesByEventId.get(event.id) ?? [],
+  }));
+
   return (
     <div className="flex w-full flex-col">
       <div className="border-b bg-card px-6 py-3">
@@ -110,6 +131,7 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
         breadcrumb={breadcrumb}
         queryableTasks={queryableTasks}
         queryableNotes={queryableNotes}
+        queryableEvents={queryableEvents}
       />
     </div>
   );

@@ -34,6 +34,10 @@ export default async function NotesManagePage() {
         <NoteTagsSection tags={noteTags} />
         {noteTags.length === 0 && <p className="text-sm text-muted-foreground">No note tags yet.</p>}
       </div>
+
+      <Link href="/tags" className="text-sm text-primary hover:underline">
+        Browse all tags &rarr;
+      </Link>
     </main>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runEmbeddedQuery, type QueryableNote, type QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
+import { runEmbeddedQuery, type QueryableEvent, type QueryableNote, type QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
 
 // Wednesday. This week runs Sun Aug 23 - Sat Aug 29; next week Aug 30 - Sep
 // 5 -- same reference date groupTasksByDueDate.test.ts already validated
@@ -12,6 +12,10 @@ function task(overrides: Partial<QueryableTask> & { id: string }): QueryableTask
 
 function note(overrides: Partial<QueryableNote> & { id: string }): QueryableNote {
   return { title: overrides.id, tags: [], ...overrides };
+}
+
+function event(overrides: Partial<QueryableEvent> & { id: string }): QueryableEvent {
+  return { title: overrides.id, start_at: "2026-08-26T12:00:00", tags: [], ...overrides };
 }
 
 describe("runEmbeddedQuery", () => {
@@ -94,5 +98,51 @@ describe("runEmbeddedQuery", () => {
     const result = runEmbeddedQuery({ pillar: "note" }, { tasks: [], notes });
     expect(result.items).toHaveLength(10);
     expect(result.totalCount).toBe(12);
+  });
+
+  it("returns all events when there's no filter", () => {
+    const events = [event({ id: "a" }), event({ id: "b" })];
+    const result = runEmbeddedQuery({ pillar: "event" }, { tasks: [], notes: [], events });
+    expect(result.items).toEqual(events);
+  });
+
+  it("treats a missing events snapshot as empty rather than throwing", () => {
+    const result = runEmbeddedQuery({ pillar: "event" }, { tasks: [], notes: [] });
+    expect(result.items).toEqual([]);
+    expect(result.totalCount).toBe(0);
+  });
+
+  it("filters events by tag", () => {
+    const events = [event({ id: "a", tags: ["standup"] }), event({ id: "b", tags: [] })];
+    const result = runEmbeddedQuery({ pillar: "event", tag: "standup" }, { tasks: [], notes: [], events });
+    expect(result.items.map((e) => e.id)).toEqual(["a"]);
+  });
+
+  it("filters events by due:today to just today's calendar day", () => {
+    const events = [
+      event({ id: "today-morning", start_at: "2026-08-26T09:00:00" }),
+      event({ id: "today-evening", start_at: "2026-08-26T23:30:00" }),
+      event({ id: "yesterday", start_at: "2026-08-25T23:59:00" }),
+      event({ id: "tomorrow", start_at: "2026-08-27T00:01:00" }),
+    ];
+    const result = runEmbeddedQuery({ pillar: "event", due: "today" }, { tasks: [], notes: [], events }, REF);
+    expect(result.items.map((e) => e.id).sort()).toEqual(["today-evening", "today-morning"]);
+  });
+
+  it("ignores status and non-today due values on events", () => {
+    const events = [event({ id: "a" })];
+    const result = runEmbeddedQuery(
+      { pillar: "event", status: "done", due: "overdue" },
+      { tasks: [], notes: [], events },
+      REF
+    );
+    expect(result.items.map((e) => e.id)).toEqual(["a"]);
+  });
+
+  it("truncates event results at 10 and reports the real total", () => {
+    const events = Array.from({ length: 11 }, (_, i) => event({ id: `e${i}` }));
+    const result = runEmbeddedQuery({ pillar: "event" }, { tasks: [], notes: [], events });
+    expect(result.items).toHaveLength(10);
+    expect(result.totalCount).toBe(11);
   });
 });

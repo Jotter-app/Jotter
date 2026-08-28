@@ -139,6 +139,7 @@ This is Part 1's `handleCreateTaskFromLine` in every way except where `lineFrom`
 - Task creation fails server-side: nothing is dispatched, the line (and its date-detection prompt) is left exactly as it was — next click retries.
 - Line edited after the button renders but before it's clicked: the click handler reads the line fresh at click time (via the ref-backed closure, same as every other menu/handler in this editor), so it always acts on current text, not stale text from when the decoration was built.
 - A line with a date phrase *and* other content (e.g. "Meeting with the team tomorrow 3pm to discuss Q4 planning"): converts the whole line, same as Part 1's own accepted trade-off — the date moves into the checkbox's `(due ...)` suffix rather than staying inline, and the rest of the sentence becomes the task title.
+- **(Added in Tier 3)** A heading or a `?tasks`/`?events` query line whose own text contains a chrono-recognizable word (e.g. a heading titled "Today's events", or the literal `due:today` filter syntax) used to trip this plugin over itself — the word "today" inside either would get flagged as a date match and split the line with a stray "Create task?" button. Fixed by skipping any line matching `HEADING_LINE` (`/^\s*#{1,6}\s/`) or recognized by `parseEmbeddedQuery` before running chrono at all — found while building Tier 3's daily-note template, which has both.
 
 ### Testing Approach
 
