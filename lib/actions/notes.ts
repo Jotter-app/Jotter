@@ -93,6 +93,15 @@ export async function moveNote(noteId: string, folderId: string | null) {
   revalidatePath("/notes");
 }
 
+export async function setNoteStarred(noteId: string, starred: boolean) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return;
+
+  await supabase.from("notes").update({ starred }).eq("id", noteId);
+  revalidatePath("/notes");
+  revalidatePath(`/notes/${noteId}`);
+}
+
 export interface SaveNoteResult {
   ok: boolean;
   conflict: boolean;
