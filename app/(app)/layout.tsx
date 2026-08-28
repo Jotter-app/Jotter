@@ -8,6 +8,8 @@ import { GlobalSearch } from "@/components/search/GlobalSearch";
 import { NotificationSetup } from "@/components/notifications/NotificationSetupLoader";
 import { ThemeToggle } from "@/components/theme/ThemeToggleLoader";
 import { TopNav } from "@/components/layout/TopNav";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { MobileOverflowMenu } from "@/components/layout/MobileOverflowMenu";
 
 // Belt-and-suspenders with proxy.ts: proxy already redirects unauthenticated
 // requests to /login, but a Server Component that renders without going
@@ -32,26 +34,34 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
             </div>
             <span className="hidden font-heading text-lg text-accent-700 sm:inline">Jotter</span>
           </div>
-          <TopNav />
+          <div className="hidden sm:block">
+            <TopNav />
+          </div>
         </div>
         <div className="flex items-center gap-1.5">
           <NotificationSetup />
           <GlobalSearch />
-          <ThemeToggle />
-          <Link href="/settings">
-            <Button variant="ghost" size="sm" aria-label="Settings">
-              <Settings className="size-4" />
-            </Button>
-          </Link>
-          <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm" aria-label="Sign out">
-              <LogOut className="size-4" />
-              <span className="hidden md:inline">Sign out</span>
-            </Button>
-          </form>
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <ThemeToggle />
+            <Link href="/settings">
+              <Button variant="ghost" size="sm" aria-label="Settings">
+                <Settings className="size-4" />
+              </Button>
+            </Link>
+            <form action={signOut}>
+              <Button type="submit" variant="ghost" size="sm" aria-label="Sign out">
+                <LogOut className="size-4" />
+                <span className="hidden md:inline">Sign out</span>
+              </Button>
+            </form>
+          </div>
+          <div className="sm:hidden">
+            <MobileOverflowMenu />
+          </div>
         </div>
       </header>
-      <div className="flex flex-1">{children}</div>
+      <div className="flex flex-1 pb-16 sm:pb-0">{children}</div>
+      <BottomNav />
     </div>
   );
 }

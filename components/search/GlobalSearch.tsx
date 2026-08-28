@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { Search } from "lucide-react";
 import {
   CommandDialog,
   CommandEmpty,
@@ -116,8 +117,17 @@ export function GlobalSearch() {
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="text-muted-foreground">
-        Search... <kbd className="ml-2 text-xs">Ctrl+K</kbd>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+        className="text-muted-foreground"
+        aria-label="Search"
+      >
+        <Search className="size-4 sm:hidden" />
+        <span className="hidden sm:inline">
+          Search... <kbd className="ml-2 text-xs">Ctrl+K</kbd>
+        </span>
       </Button>
       {/* shouldFilter=false: results (search, and the routing/command items
           computed above) are already the correct set -- cmdk's own fuzzy
