@@ -18,7 +18,17 @@ const eventSchema = z.object({
   endAt: z.string(),
   calendarColor: z.string().default("#7a8a5e"),
   alsoCreateTask: z.string().optional(),
+  repeats: z.enum(["none", "daily", "weekly", "monthly"]).default("none"),
 });
+
+// Fixed, non-editable rules -- see the Tier 5 spec's Non-Goals for why
+// this stops at three static options rather than a general RRULE builder.
+const RECURRENCE_RULES: Record<string, string | undefined> = {
+  none: undefined,
+  daily: "FREQ=DAILY",
+  weekly: "FREQ=WEEKLY",
+  monthly: "FREQ=MONTHLY",
+};
 
 export interface EventFormState {
   error: string | null;
@@ -30,6 +40,7 @@ export interface InsertEventParams {
   endAt: string;
   calendarColor?: string;
   alsoCreateTask?: boolean;
+  recurrenceRule?: string;
 }
 
 export interface InsertEventResult {
@@ -43,7 +54,7 @@ export interface InsertEventResult {
 export async function insertEventCore(
   supabase: SupabaseClient<Database>,
   userId: string,
-  { title, startAt, endAt, calendarColor = "#7a8a5e", alsoCreateTask = false }: InsertEventParams
+  { title, startAt, endAt, calendarColor = "#7a8a5e", alsoCreateTask = false, recurrenceRule }: InsertEventParams
 ): Promise<InsertEventResult> {
   // A companion-task creation failure should never block the event itself
   // from being created -- same never-block-submission principle used
@@ -67,11 +78,20 @@ export async function insertEventCore(
       end_at: endAt,
       calendar_color: calendarColor,
       linked_task_id: linkedTaskId,
+      recurrence_rule: recurrenceRule ?? null,
     })
     .select("id")
     .single();
   if (error || !event) {
     return { ok: false, eventId: null, error: error?.message ?? "Could not create event." };
+  }
+
+  // Self-referencing series_id (Tier 5) -- can only be set once the row's
+  // own id exists, so this is a follow-up update rather than part of the
+  // insert. "Every occurrence of this series" is then always a uniform
+  // `where series_id = X` query, this master row included.
+  if (recurrenceRule) {
+    await supabase.from("events").update({ series_id: event.id }).eq("id", event.id);
   }
 
   return { ok: true, eventId: event.id, error: null };
@@ -87,6 +107,7 @@ export async function createEvent(
     endAt: formData.get("endAt"),
     calendarColor: formData.get("calendarColor") || undefined,
     alsoCreateTask: formData.get("alsoCreateTask") || undefined,
+    repeats: formData.get("repeats") || undefined,
   });
   if (!parsed.success) {
     return { error: "Title, start, and end are required." };
@@ -109,6 +130,7 @@ export async function createEvent(
     // Native checkbox semantics: present ("on") when checked, absent from
     // FormData entirely when unchecked.
     alsoCreateTask: parsed.data.alsoCreateTask === "on",
+    recurrenceRule: RECURRENCE_RULES[parsed.data.repeats],
   });
   if (!result.ok) return { error: result.error };
 
@@ -210,17 +232,50 @@ export async function generateMeetingNoteCore(
 ): Promise<{ ok: boolean; noteId: string | null }> {
   const { data: event } = await supabase
     .from("events")
-    .select("title, start_at, end_at, linked_note_id")
+    .select("title, start_at, end_at, linked_note_id, series_id")
     .eq("id", eventId)
     .single();
   if (!event) return { ok: false, noteId: null };
   if (event.linked_note_id) return { ok: true, noteId: event.linked_note_id };
 
+  // Tier 5: thread this occurrence to whichever prior occurrence in the
+  // same series most recently got a note, via a real [[wikilink]] rather
+  // than a new "previous occurrence" column -- same trick the weekly
+  // review (Tier 3) uses for its "notes touched" section, reusing the
+  // existing wikilink resolver/backlinks panel as-is. A non-recurring
+  // event has no series_id, so this whole branch is a no-op for it.
+  let previousNoteTitle: string | null = null;
+  if (event.series_id) {
+    const { data: prior } = await supabase
+      .from("events")
+      .select("linked_note_id")
+      .eq("series_id", event.series_id)
+      .not("linked_note_id", "is", null)
+      .lt("start_at", event.start_at)
+      .order("start_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (prior?.linked_note_id) {
+      const { data: prevNote } = await supabase.from("notes").select("title").eq("id", prior.linked_note_id).single();
+      previousNoteTitle = prevNote?.title ?? null;
+    }
+  }
+
   const range = `${format(new Date(event.start_at), "MMM d, yyyy · h:mm a")}–${format(new Date(event.end_at), "h:mm a")}`;
+  const bodyMarkdown = previousNoteTitle ? `**${range}**\n\nPrevious: [[${previousNoteTitle}]]\n\n` : `**${range}**\n\n`;
+  // Every occurrence of a series shares the exact same event.title -- a
+  // bare title would make every occurrence's note collide, and
+  // resolveWikilinkTitle's "most recently edited wins" tie-break would
+  // make a "Previous" wikilink resolve to whichever note was touched most
+  // recently (often itself) instead of the actual prior occurrence. The
+  // date suffix makes each occurrence's note title unique so the wikilink
+  // resolves unambiguously. A non-recurring event (no series_id) keeps its
+  // bare title exactly as before.
+  const title = event.series_id ? `${event.title} — ${format(new Date(event.start_at), "MMM d, yyyy")}` : event.title;
   const result = await insertNoteCore(supabase, userId, {
     folderId: null,
-    title: event.title,
-    bodyMarkdown: `**${range}**\n\n`,
+    title,
+    bodyMarkdown,
   });
   if (!result.ok || !result.noteId) return { ok: false, noteId: null };
 
@@ -295,4 +350,53 @@ export async function timeboxTask(taskId: string, dateIso: string) {
     revalidatePath("/tasks");
   }
   return result;
+}
+
+// Turns a virtual (not-yet-real) recurring occurrence into an actual
+// events row, copying the series master's title/color. Once this exists,
+// it's an ordinary event -- same tag picker, drag-reschedule, and delete
+// every other event already has, no special-casing needed anywhere else.
+export async function materializeOccurrenceCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  seriesId: string,
+  startAtIso: string,
+  endAtIso: string
+): Promise<{ ok: boolean; eventId: string | null }> {
+  const { data: master } = await supabase.from("events").select("title, calendar_color").eq("id", seriesId).single();
+  if (!master) return { ok: false, eventId: null };
+
+  const { data: occurrence, error } = await supabase
+    .from("events")
+    .insert({
+      user_id: userId,
+      title: master.title,
+      start_at: startAtIso,
+      end_at: endAtIso,
+      calendar_color: master.calendar_color,
+      series_id: seriesId,
+    })
+    .select("id")
+    .single();
+  if (error || !occurrence) return { ok: false, eventId: null };
+
+  return { ok: true, eventId: occurrence.id };
+}
+
+// Materializes the occurrence, then delegates to generateMeetingNoteCore
+// (already series-aware) for the actual note creation + previous-occurrence
+// threading + debrief-reminder arming, rather than duplicating any of that.
+export async function materializeOccurrenceAndGenerateNote(seriesId: string, startAtIso: string, endAtIso: string) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return { ok: false, eventId: null, noteId: null };
+
+  const materialized = await materializeOccurrenceCore(supabase, userId, seriesId, startAtIso, endAtIso);
+  if (!materialized.ok || !materialized.eventId) return { ok: false, eventId: null, noteId: null };
+
+  const noteResult = await generateMeetingNoteCore(supabase, userId, materialized.eventId);
+  if (noteResult.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/notes");
+  }
+  return { ok: noteResult.ok, eventId: materialized.eventId, noteId: noteResult.noteId };
 }

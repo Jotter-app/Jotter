@@ -79,6 +79,20 @@ export function AddEventDialog({
               <Checkbox id="event-also-task" name="alsoCreateTask" defaultChecked={defaultEventCreatesTask} />
               <Label htmlFor="event-also-task">Also add as a task</Label>
             </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="event-repeats">Repeats</Label>
+              <select
+                id="event-repeats"
+                name="repeats"
+                defaultValue="none"
+                className="h-9 rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <option value="none">Does not repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+              </select>
+            </div>
             {state.error && <p className="text-sm text-destructive">{state.error}</p>}
           </div>
           <DialogFooter>

@@ -43,6 +43,7 @@ export type Database = {
           linked_note_id: string | null
           linked_task_id: string | null
           recurrence_rule: string | null
+          series_id: string | null
           start_at: string
           title: string
           user_id: string
@@ -55,6 +56,7 @@ export type Database = {
           linked_note_id?: string | null
           linked_task_id?: string | null
           recurrence_rule?: string | null
+          series_id?: string | null
           start_at: string
           title: string
           user_id: string
@@ -67,6 +69,7 @@ export type Database = {
           linked_note_id?: string | null
           linked_task_id?: string | null
           recurrence_rule?: string | null
+          series_id?: string | null
           start_at?: string
           title?: string
           user_id?: string
@@ -84,6 +87,13 @@ export type Database = {
             columns: ["linked_task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
         ]

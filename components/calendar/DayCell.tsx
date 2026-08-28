@@ -5,9 +5,11 @@ import { isToday } from "date-fns";
 import { Plus } from "lucide-react";
 import { EventChip, type LinkedTask } from "@/components/calendar/EventChip";
 import { TaskChip } from "@/components/calendar/TaskChip";
+import { RecurringOccurrenceChip } from "@/components/calendar/RecurringOccurrenceChip";
 import { dayKey } from "@/lib/calendar/grid";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/database.types";
+import type { VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -17,6 +19,7 @@ export function DayCell({
   date,
   events,
   tasksDue,
+  virtualOccurrences,
   dimmed,
   onAddEvent,
   linkedTasksById,
@@ -27,6 +30,7 @@ export function DayCell({
   date: Date;
   events: Event[];
   tasksDue: Task[];
+  virtualOccurrences?: VirtualOccurrence[];
   dimmed?: boolean;
   onAddEvent: (date: Date) => void;
   linkedTasksById?: Map<string, LinkedTask>;
@@ -77,6 +81,9 @@ export function DayCell({
         ))}
         {tasksDue.map((task) => (
           <TaskChip key={task.id} task={task} />
+        ))}
+        {(virtualOccurrences ?? []).map((occurrence) => (
+          <RecurringOccurrenceChip key={`${occurrence.seriesId}-${dayKey(occurrence.startAt)}`} occurrence={occurrence} />
         ))}
       </div>
     </div>

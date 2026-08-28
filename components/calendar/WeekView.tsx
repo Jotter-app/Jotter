@@ -8,9 +8,10 @@ import { AddEventDialog } from "@/components/calendar/AddEventDialog";
 import { UnscheduledTasksPanel } from "@/components/calendar/UnscheduledTasksPanel";
 import type { LinkedTask } from "@/components/calendar/EventChip";
 import { buildWeek, dayKey } from "@/lib/calendar/grid";
-import { groupEventsByDay, groupTasksByDay } from "@/lib/calendar/group";
+import { groupEventsByDay, groupTasksByDay, groupVirtualOccurrencesByDay } from "@/lib/calendar/group";
 import { useEventDragAndDrop } from "@/lib/calendar/useEventDragAndDrop";
 import type { Database } from "@/lib/supabase/database.types";
+import type { VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Task = Database["public"]["Tables"]["tasks"]["Row"] & { due_at: string };
@@ -26,6 +27,7 @@ export function WeekView({
   allTags,
   tagsByEventId,
   unscheduledTasks,
+  virtualOccurrences,
 }: {
   weekDate: Date;
   events: Event[];
@@ -35,6 +37,7 @@ export function WeekView({
   allTags?: Tag[];
   tagsByEventId?: Map<string, Tag[]>;
   unscheduledTasks?: UnscheduledTask[];
+  virtualOccurrences?: VirtualOccurrence[];
 }) {
   const [addEventDate, setAddEventDate] = useState<Date | null>(null);
   const { sensors, handleDragEnd } = useEventDragAndDrop();
@@ -42,6 +45,7 @@ export function WeekView({
   const days = buildWeek(weekDate);
   const eventsByDay = groupEventsByDay(events);
   const tasksByDay = groupTasksByDay(tasksWithDueDate);
+  const virtualOccurrencesByDay = groupVirtualOccurrencesByDay(virtualOccurrences ?? []);
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -58,6 +62,7 @@ export function WeekView({
             date={date}
             events={eventsByDay.get(dayKey(date)) ?? []}
             tasksDue={tasksByDay.get(dayKey(date)) ?? []}
+            virtualOccurrences={virtualOccurrencesByDay.get(dayKey(date)) ?? []}
             onAddEvent={setAddEventDate}
             linkedTasksById={linkedTasksById}
             allTags={allTags}
