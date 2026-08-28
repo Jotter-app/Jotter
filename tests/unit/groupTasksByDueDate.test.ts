@@ -14,6 +14,12 @@ function ids(tasks: Task[]): string[] {
   return tasks.map((t) => t.id);
 }
 
+// Matches whichever timezone actually parsed the naive (no offset/"Z") date
+// strings below, so wrapping them in this zone reproduces plain
+// calendar-day comparison regardless of which host/CI machine runs this
+// suite -- see relativeDays.test.ts for the same reasoning.
+const HOST_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 describe("groupTasksByDueDate", () => {
   // Wednesday. This week runs Sun Aug 23 - Sat Aug 29; next week Aug 30 -
   // Sep 5; the month ends Aug 31 -- before next week does, so this
@@ -31,7 +37,7 @@ describe("groupTasksByDueDate", () => {
       task("end-of-next-week", "2026-09-05T23:59:00"),
     ];
 
-    const result = groupTasksByDueDate(tasks, REF);
+    const result = groupTasksByDueDate(tasks, HOST_TZ, REF);
 
     expect(ids(result.overdue)).toEqual(["overdue"]);
     expect(ids(result.today)).toEqual(["today"]);
@@ -45,7 +51,7 @@ describe("groupTasksByDueDate", () => {
       task("later", "2026-09-06T12:00:00"), // just past next week's end
     ];
 
-    const result = groupTasksByDueDate(tasks, REF);
+    const result = groupTasksByDueDate(tasks, HOST_TZ, REF);
 
     expect(ids(result.nextWeek)).toEqual(["still-next-week"]);
     expect(result.thisMonth).toEqual([]);
@@ -62,7 +68,7 @@ describe("groupTasksByDueDate", () => {
       task("later", "2026-09-01T00:01:00"),
     ];
 
-    const result = groupTasksByDueDate(tasks, ref);
+    const result = groupTasksByDueDate(tasks, HOST_TZ, ref);
 
     expect(ids(result.thisMonth)).toEqual(["in-this-month", "end-of-month"]);
     expect(result.laterCount).toBe(1);
@@ -80,7 +86,7 @@ describe("groupTasksByDueDate", () => {
       task("mid-january", "2027-01-15T12:00:00"), // past next week
     ];
 
-    const result = groupTasksByDueDate(tasks, ref);
+    const result = groupTasksByDueDate(tasks, HOST_TZ, ref);
 
     expect(ids(result.thisWeek)).toContain("end-of-december");
     expect(ids(result.nextWeek)).toEqual(["early-january"]);
@@ -91,7 +97,7 @@ describe("groupTasksByDueDate", () => {
   it("puts tasks with no due date in their own bucket, untouched by date math", () => {
     const tasks = [task("no-date-a", null), task("no-date-b", null)];
 
-    const result = groupTasksByDueDate(tasks, REF);
+    const result = groupTasksByDueDate(tasks, HOST_TZ, REF);
 
     expect(ids(result.noDueDate)).toEqual(["no-date-a", "no-date-b"]);
     expect(result.overdue).toEqual([]);
@@ -99,7 +105,7 @@ describe("groupTasksByDueDate", () => {
   });
 
   it("returns all-empty groups for an empty task list", () => {
-    const result = groupTasksByDueDate([], REF);
+    const result = groupTasksByDueDate([], HOST_TZ, REF);
 
     expect(result).toEqual({
       overdue: [],
@@ -109,6 +115,31 @@ describe("groupTasksByDueDate", () => {
       thisMonth: [],
       laterCount: 0,
       noDueDate: [],
+    });
+  });
+
+  // Reproduces the actual reported bug: a task correctly stored as a UTC
+  // instant gets sorted into the wrong section when the bucketing math runs
+  // in the wrong zone. Both instants are fixed, unambiguous UTC ("Z")
+  // instants, independent of the host machine running this test.
+  describe("cross-timezone correctness (independent of host timezone)", () => {
+    // "Now" is 2026-08-28T22:13:00Z -- Aug 28 in both UTC and
+    // America/Chicago (UTC-5 in August).
+    const nowInstant = new Date("2026-08-28T22:13:00Z");
+    // 2026-08-29T04:00:00Z is Aug 29 (tomorrow) in UTC, but only
+    // 2026-08-28T23:00 (still today) in America/Chicago.
+    const straddling = task("straddling", "2026-08-29T04:00:00Z");
+
+    it("buckets a straddling instant as This Week (not Today) when evaluated in UTC", () => {
+      const result = groupTasksByDueDate([straddling], "UTC", nowInstant);
+      expect(ids(result.today)).toEqual([]);
+      expect(ids(result.thisWeek)).toEqual(["straddling"]);
+    });
+
+    it("buckets the exact same instant as Today when evaluated in the viewer's own zone", () => {
+      const result = groupTasksByDueDate([straddling], "America/Chicago", nowInstant);
+      expect(ids(result.today)).toEqual(["straddling"]);
+      expect(ids(result.thisWeek)).toEqual([]);
     });
   });
 });

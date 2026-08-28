@@ -1,12 +1,13 @@
 "use client";
 
 import { useTransition } from "react";
-import { format } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
 import { deleteTask, toggleTaskComplete, unarchiveTask } from "@/lib/actions/tasks";
 import { formatRelativeDays } from "@/lib/dates/relativeDays";
+import { formatInTimeZone } from "@/lib/dates/formatInTimeZone";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -17,6 +18,7 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 // permanently remove.
 export function ArchivedTaskRow({ task }: { task: Task }) {
   const [isPending, startTransition] = useTransition();
+  const timeZone = useTimeZone();
 
   function handleToggle(checked: boolean) {
     // Un-completing also un-archives (toggleTaskComplete clears
@@ -39,7 +41,8 @@ export function ArchivedTaskRow({ task }: { task: Task }) {
       <span className="flex-1 truncate text-sm text-muted-foreground line-through">{task.title}</span>
       {task.due_at && (
         <span className="whitespace-nowrap text-xs text-muted-foreground">
-          {formatRelativeDays(new Date(task.due_at))} &middot; {format(new Date(task.due_at), "MMM d, h:mm a")}
+          {formatRelativeDays(new Date(task.due_at), timeZone)} &middot;{" "}
+          {formatInTimeZone(new Date(task.due_at), timeZone, "MMM d, h:mm a")}
         </span>
       )}
       <Button size="sm" variant="ghost" onClick={handleUnarchive} disabled={isPending}>

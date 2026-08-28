@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { PreviewCard, PreviewCardContent, PreviewCardTrigger } from "@/components/ui/preview-card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { linkTaskNote, unlinkTaskNote } from "@/lib/actions/taskNoteLinks";
 import { toggleTaskComplete } from "@/lib/actions/tasks";
 import { formatRelativeDays } from "@/lib/dates/relativeDays";
+import { formatInTimeZone } from "@/lib/dates/formatInTimeZone";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import { priorityColor, priorityLabel } from "@/lib/tasks/priority";
 
 type TaskOption = {
@@ -36,6 +37,7 @@ export function LinkedTasksPicker({
   const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const timeZone = useTimeZone();
 
   const linkedIds = new Set(linkedTasks.map((t) => t.id));
   const availableTasks = allTasks.filter(
@@ -83,7 +85,7 @@ export function LinkedTasksPicker({
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {task.due_at
-                      ? `${formatRelativeDays(new Date(task.due_at))} · ${format(new Date(task.due_at), "MMM d, h:mm a")}`
+                      ? `${formatRelativeDays(new Date(task.due_at), timeZone)} · ${formatInTimeZone(new Date(task.due_at), timeZone, "MMM d, h:mm a")}`
                       : "No due date"}
                   </p>
                   <p className="text-xs text-muted-foreground">{task.completed_at ? "Completed" : "Not completed"}</p>
