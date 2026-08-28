@@ -17,6 +17,27 @@ export interface ImportNotesResult {
   error: string | null;
 }
 
+export type CreateImportUploadUrlResult =
+  | { ok: true; path: string; token: string }
+  | { ok: false; error: string };
+
+// Lets the browser upload a vault zip straight to Supabase Storage instead
+// of through this app's own Server Action body -- Vercel's Serverless
+// Function request-body limit (~4.5MB, not configurable) would otherwise
+// reject a real vault export with attachments long before importNotes ever
+// ran. The path is scoped under the user's own id to match the
+// note-imports bucket's RLS policies (see the migration that created it).
+export async function createImportUploadUrl(fileName: string): Promise<CreateImportUploadUrlResult> {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return { ok: false, error: "Not signed in." };
+
+  const path = `${userId}/${crypto.randomUUID()}-${fileName}`;
+  const { data, error } = await supabase.storage.from("note-imports").createSignedUploadUrl(path);
+  if (error || !data) return { ok: false, error: error?.message ?? "Could not prepare upload." };
+
+  return { ok: true, path: data.path, token: data.token };
+}
+
 interface FileEntry {
   // A zip entry's own internal path (e.g. "Work/Projects/Note.md"), or
   // just a loose upload's filename (e.g. "Note.md") -- either way, the
@@ -103,13 +124,37 @@ export async function importNotesCore(
   return { ok: true, imported: createdNoteIds.length, error: null };
 }
 
-export async function importNotes(formData: FormData): Promise<ImportNotesResult> {
+export interface UploadedImportFile {
+  path: string;
+  // The signed-upload path is prefixed with the user id and a random
+  // uuid to keep it unique/scoped in storage -- that's not the filename
+  // a zip vs. loose .md is told apart by, or a loose .md's fallback title
+  // is derived from, so the browser's original File.name rides along
+  // separately instead of being parsed back out of the path.
+  name: string;
+}
+
+// Takes storage paths (from files the browser already uploaded via
+// createImportUploadUrl), not raw file bytes -- this action's own payload
+// stays tiny regardless of vault size. Uploads are cleaned up from storage
+// once processed, whether or not the import itself succeeded.
+export async function importNotes(uploads: UploadedImportFile[]): Promise<ImportNotesResult> {
   const { supabase, userId } = await currentUserId();
   if (!userId) return { ok: false, imported: 0, error: "Not signed in." };
 
-  const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
-  const result = await importNotesCore(supabase, userId, files);
+  try {
+    const files: File[] = [];
+    for (const upload of uploads) {
+      const { data, error } = await supabase.storage.from("note-imports").download(upload.path);
+      if (error || !data) return { ok: false, imported: 0, error: "Could not read an uploaded file." };
+      files.push(new File([data], upload.name));
+    }
 
-  if (result.imported > 0) revalidatePath("/notes");
-  return result;
+    const result = await importNotesCore(supabase, userId, files);
+    if (result.imported > 0) revalidatePath("/notes");
+    return result;
+  } finally {
+    const paths = uploads.map((u) => u.path);
+    if (paths.length > 0) await supabase.storage.from("note-imports").remove(paths);
+  }
 }

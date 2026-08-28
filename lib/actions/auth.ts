@@ -47,8 +47,14 @@ export async function signUpWithPassword(
     return { error: parsed.error.issues[0].message };
   }
 
+  const headerList = await headers();
+  const origin = headerList.get("origin") ?? `https://${headerList.get("host")}`;
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp(parsed.data);
+  const { error } = await supabase.auth.signUp({
+    ...parsed.data,
+    options: { emailRedirectTo: `${origin}/auth/callback` },
+  });
   if (error) {
     return { error: error.message };
   }
