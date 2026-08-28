@@ -1,14 +1,24 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PreviewCard, PreviewCardContent, PreviewCardTrigger } from "@/components/ui/preview-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { linkTaskNote, unlinkTaskNote } from "@/lib/actions/taskNoteLinks";
 import { toggleTaskComplete } from "@/lib/actions/tasks";
+import { formatRelativeDays } from "@/lib/dates/relativeDays";
+import { priorityColor, priorityLabel } from "@/lib/tasks/priority";
 
-type TaskOption = { id: string; title: string; completed_at: string | null; due_at: string | null };
+type TaskOption = {
+  id: string;
+  title: string;
+  completed_at: string | null;
+  due_at: string | null;
+  priority: number;
+};
 
 // Mirrors LinkedNotesPicker's search-and-link UX (same table, other
 // direction). The complete-checkbox reuses toggleTaskComplete verbatim --
@@ -53,9 +63,32 @@ export function LinkedTasksPicker({
                   startTransition(() => toggleTaskComplete(task.id, checked === true, task.due_at))
                 }
               />
-              <span className={task.completed_at ? "flex-1 truncate text-muted-foreground line-through" : "flex-1 truncate"}>
-                {task.title}
-              </span>
+              <PreviewCard>
+                <PreviewCardTrigger
+                  render={
+                    <span
+                      className={
+                        task.completed_at ? "flex-1 truncate text-muted-foreground line-through" : "flex-1 truncate"
+                      }
+                    />
+                  }
+                >
+                  {task.title}
+                </PreviewCardTrigger>
+                <PreviewCardContent>
+                  <p className="font-medium">{task.title}</p>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span title={priorityLabel(task.priority)} className={`h-2 w-2 shrink-0 rounded-full ${priorityColor(task.priority)}`} />
+                    {priorityLabel(task.priority)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {task.due_at
+                      ? `${formatRelativeDays(new Date(task.due_at))} · ${format(new Date(task.due_at), "MMM d, h:mm a")}`
+                      : "No due date"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">{task.completed_at ? "Completed" : "Not completed"}</p>
+                </PreviewCardContent>
+              </PreviewCard>
               <button
                 type="button"
                 onClick={() => handleUnlink(task.id)}

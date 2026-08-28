@@ -20,7 +20,13 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type Note = Database["public"]["Tables"]["notes"]["Row"];
 type Tag = Database["public"]["Tables"]["tags"]["Row"];
-type TaskOption = { id: string; title: string; completed_at: string | null; due_at: string | null };
+type TaskOption = {
+  id: string;
+  title: string;
+  completed_at: string | null;
+  due_at: string | null;
+  priority: number;
+};
 type Backlink = { id: string; title: string };
 
 export function NoteEditor({
