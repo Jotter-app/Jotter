@@ -2,6 +2,7 @@
 
 import { currentUserId } from "@/lib/supabase/session";
 import { dayKey } from "@/lib/calendar/grid";
+import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 
 export interface SearchResult {
   type: "note" | "task" | "event";
@@ -24,6 +25,7 @@ export async function search(query: string): Promise<SearchResult[]> {
   const { supabase, userId } = await currentUserId();
   if (!userId) return [];
 
+  const timeZone = await getUserTimeZone();
   const pattern = `%${trimmed}%`;
 
   const [notesByTitle, notesByBody, tasksByTitle, tasksByNotes, eventsByTitle] = await Promise.all([
@@ -46,7 +48,7 @@ export async function search(query: string): Promise<SearchResult[]> {
 
   const events = new Map<string, { title: string; dateKey: string }>();
   for (const e of eventsByTitle.data ?? []) {
-    events.set(e.id, { title: e.title, dateKey: dayKey(new Date(e.start_at)) });
+    events.set(e.id, { title: e.title, dateKey: dayKey(new Date(e.start_at), timeZone) });
   }
 
   return [

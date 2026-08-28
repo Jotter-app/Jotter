@@ -1,12 +1,13 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
-import { isToday } from "date-fns";
 import { Plus } from "lucide-react";
 import { EventChip, type LinkedTask } from "@/components/calendar/EventChip";
 import { TaskChip } from "@/components/calendar/TaskChip";
 import { RecurringOccurrenceChip } from "@/components/calendar/RecurringOccurrenceChip";
 import { dayKey } from "@/lib/calendar/grid";
+import { isTodayInTimeZone } from "@/lib/dates/relativeDays";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/lib/supabase/database.types";
 import type { VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
@@ -38,15 +39,16 @@ export function DayCell({
   tagsByEventId?: Map<string, Tag[]>;
   className?: string;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: dayKey(date) });
+  const timeZone = useTimeZone();
+  const { setNodeRef, isOver } = useDroppable({ id: dayKey(date, timeZone) });
 
-  const bg = isOver ? "bg-primary/10" : dimmed ? "bg-muted/30" : isToday(date) ? "bg-accent-100" : "bg-card";
+  const bg = isOver ? "bg-primary/10" : dimmed ? "bg-muted/30" : isTodayInTimeZone(date, timeZone) ? "bg-accent-100" : "bg-card";
 
   return (
     <div
       ref={setNodeRef}
       data-testid="day-cell"
-      data-date={dayKey(date)}
+      data-date={dayKey(date, timeZone)}
       className={cn(
         "group/cell flex min-h-24 flex-col gap-1 rounded-2xl p-1.5 shadow-sm transition-colors",
         bg,
@@ -56,7 +58,7 @@ export function DayCell({
     >
       <div className="flex items-center justify-between">
         <span
-          className={`flex size-5 items-center justify-center rounded-full text-xs ${isToday(date) ? "bg-primary font-medium text-primary-foreground" : ""}`}
+          className={`flex size-5 items-center justify-center rounded-full text-xs ${isTodayInTimeZone(date, timeZone) ? "bg-primary font-medium text-primary-foreground" : ""}`}
         >
           {date.getDate()}
         </span>
@@ -83,7 +85,7 @@ export function DayCell({
           <TaskChip key={task.id} task={task} />
         ))}
         {(virtualOccurrences ?? []).map((occurrence) => (
-          <RecurringOccurrenceChip key={`${occurrence.seriesId}-${dayKey(occurrence.startAt)}`} occurrence={occurrence} />
+          <RecurringOccurrenceChip key={`${occurrence.seriesId}-${dayKey(occurrence.startAt, timeZone)}`} occurrence={occurrence} />
         ))}
       </div>
     </div>
