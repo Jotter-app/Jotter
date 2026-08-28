@@ -17,19 +17,24 @@ export interface VirtualOccurrence {
  * own start date -- rule.between() includes the rule's own dtstart as its
  * first occurrence, and the master is already a real, normally-rendered
  * row, not a virtual one.
+ *
+ * `timeZone` must match whatever zone the caller used to build
+ * `alreadyMaterializedDateKeys` -- otherwise a materialized occurrence
+ * could fail to match here and render twice.
  */
 export function expandRecurringEvent(
   master: { id: string; title: string; start_at: string; end_at: string; calendar_color: string; recurrence_rule: string },
   alreadyMaterializedDateKeys: Set<string>,
   rangeStart: Date,
-  rangeEnd: Date
+  rangeEnd: Date,
+  timeZone: string
 ): VirtualOccurrence[] {
   const durationMs = new Date(master.end_at).getTime() - new Date(master.start_at).getTime();
   const rule = new RRule({ ...RRule.parseString(master.recurrence_rule), dtstart: new Date(master.start_at) });
 
   return rule
     .between(rangeStart, rangeEnd, true)
-    .filter((date) => !alreadyMaterializedDateKeys.has(dayKey(date)))
+    .filter((date) => !alreadyMaterializedDateKeys.has(dayKey(date, timeZone)))
     .map((date) => ({
       seriesId: master.id,
       title: master.title,

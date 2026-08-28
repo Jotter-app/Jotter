@@ -10,6 +10,7 @@ import type { LinkedTask } from "@/components/calendar/EventChip";
 import { buildWeek, dayKey } from "@/lib/calendar/grid";
 import { groupEventsByDay, groupTasksByDay, groupVirtualOccurrencesByDay } from "@/lib/calendar/group";
 import { useEventDragAndDrop } from "@/lib/calendar/useEventDragAndDrop";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import type { Database } from "@/lib/supabase/database.types";
 import type { VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 
@@ -41,28 +42,29 @@ export function WeekView({
 }) {
   const [addEventDate, setAddEventDate] = useState<Date | null>(null);
   const { sensors, handleDragEnd } = useEventDragAndDrop();
+  const timeZone = useTimeZone();
 
-  const days = buildWeek(weekDate);
-  const eventsByDay = groupEventsByDay(events);
-  const tasksByDay = groupTasksByDay(tasksWithDueDate);
-  const virtualOccurrencesByDay = groupVirtualOccurrencesByDay(virtualOccurrences ?? []);
+  const days = buildWeek(weekDate, timeZone);
+  const eventsByDay = groupEventsByDay(events, timeZone);
+  const tasksByDay = groupTasksByDay(tasksWithDueDate, timeZone);
+  const virtualOccurrencesByDay = groupVirtualOccurrencesByDay(virtualOccurrences ?? [], timeZone);
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <UnscheduledTasksPanel tasks={unscheduledTasks ?? []} />
       <div className="grid grid-cols-7 gap-2 text-sm">
         {days.map((date) => (
-          <div key={dayKey(date)} className="p-1.5 text-center text-xs font-medium text-muted-foreground">
+          <div key={dayKey(date, timeZone)} className="p-1.5 text-center text-xs font-medium text-muted-foreground">
             {format(date, "EEE d")}
           </div>
         ))}
         {days.map((date) => (
           <DayCell
-            key={dayKey(date)}
+            key={dayKey(date, timeZone)}
             date={date}
-            events={eventsByDay.get(dayKey(date)) ?? []}
-            tasksDue={tasksByDay.get(dayKey(date)) ?? []}
-            virtualOccurrences={virtualOccurrencesByDay.get(dayKey(date)) ?? []}
+            events={eventsByDay.get(dayKey(date, timeZone)) ?? []}
+            tasksDue={tasksByDay.get(dayKey(date, timeZone)) ?? []}
+            virtualOccurrences={virtualOccurrencesByDay.get(dayKey(date, timeZone)) ?? []}
             onAddEvent={setAddEventDate}
             linkedTasksById={linkedTasksById}
             allTags={allTags}

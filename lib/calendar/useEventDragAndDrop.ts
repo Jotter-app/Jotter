@@ -3,6 +3,7 @@ import { PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-ki
 import { differenceInCalendarDays } from "date-fns";
 import { dayKey, shiftByDays } from "@/lib/calendar/grid";
 import { rescheduleEvent, timeboxTask } from "@/lib/actions/events";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
@@ -16,6 +17,7 @@ type Task = Database["public"]["Tables"]["tasks"]["Row"];
 export function useEventDragAndDrop() {
   const [, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const timeZone = useTimeZone();
 
   function handleDragEnd(dragEvent: DragEndEvent) {
     const overId = dragEvent.over?.id;
@@ -23,7 +25,7 @@ export function useEventDragAndDrop() {
 
     const draggedEvent = dragEvent.active.data.current?.event as Event | undefined;
     if (draggedEvent) {
-      const originalKey = dayKey(new Date(draggedEvent.start_at));
+      const originalKey = dayKey(new Date(draggedEvent.start_at), timeZone);
       if (overId === originalKey) return;
 
       const delta = differenceInCalendarDays(new Date(String(overId)), new Date(originalKey));

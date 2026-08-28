@@ -10,12 +10,14 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
+import { TZDate } from "@date-fns/tz";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { MonthView } from "@/components/calendar/MonthView";
 import { WeekView } from "@/components/calendar/WeekView";
 import { Button } from "@/components/ui/button";
 import { getDefaultEventCreatesTask } from "@/lib/actions/settings";
+import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 import { expandRecurringEvent, type VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 import { dayKey } from "@/lib/calendar/grid";
 import type { LinkedTask } from "@/components/calendar/EventChip";
@@ -23,16 +25,30 @@ import type { Database } from "@/lib/supabase/database.types";
 
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
 
-function parseAnchorDate(value: string | undefined): Date {
-  if (!value) return new Date();
+// `timeZone` is required -- see lib/calendar/grid.ts's doc comments. This
+// Server Component never hydrates, so a wrong zone here doesn't throw a
+// hydration error the way DayCell's would -- it silently shows the wrong
+// month/week (and queries the wrong date range from the DB) for several
+// hours around every day boundary between the server's zone (UTC on
+// Vercel) and the viewer's own, with nothing client-side to correct it.
+function parseAnchorDate(value: string | undefined, timeZone: string): Date {
+  if (!value) return new TZDate(new Date(), timeZone);
   const parsed = new Date(`${value}T00:00:00`);
-  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  if (Number.isNaN(parsed.getTime())) return new TZDate(new Date(), timeZone);
+  // Re-anchors the parsed y/m/d as midnight *in the viewer's zone* rather
+  // than midnight in whichever zone happened to parse the naive string --
+  // that parse is itself ambient, but self-consistently so (it always
+  // round-trips to the exact y/m/d written in `value`, regardless of which
+  // zone performs it), so re-reading those components here is safe.
+  return new TZDate(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), timeZone);
 }
 
 export default async function CalendarPage({ searchParams }: PageProps<"/calendar">) {
   const params = await searchParams;
   const view = params.view === "week" ? "week" : "month";
-  const anchorDate = parseAnchorDate(typeof params.date === "string" ? params.date : undefined);
+  const timeZone = await getUserTimeZone();
+  const anchorDate = parseAnchorDate(typeof params.date === "string" ? params.date : undefined, timeZone);
+  const today = new TZDate(new Date(), timeZone);
 
   const rangeStart = view === "month" ? startOfWeek(startOfMonth(anchorDate)) : startOfWeek(anchorDate);
   const rangeEnd = view === "month" ? endOfWeek(endOfMonth(anchorDate)) : endOfWeek(anchorDate);
@@ -103,14 +119,15 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const virtualOccurrences: VirtualOccurrence[] = (seriesMasters ?? []).flatMap((master) => {
     if (!master.recurrence_rule) return [];
     const materializedDateKeys = new Set(
-      (events ?? []).filter((e) => e.series_id === master.id).map((e) => dayKey(new Date(e.start_at)))
+      (events ?? []).filter((e) => e.series_id === master.id).map((e) => dayKey(new Date(e.start_at), timeZone))
     );
-    materializedDateKeys.add(dayKey(new Date(master.start_at)));
+    materializedDateKeys.add(dayKey(new Date(master.start_at), timeZone));
     return expandRecurringEvent(
       { ...master, recurrence_rule: master.recurrence_rule },
       materializedDateKeys,
       rangeStart,
-      rangeEnd
+      rangeEnd,
+      timeZone
     );
   });
 
@@ -131,7 +148,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
                 <ChevronLeft className="size-4" />
               </Button>
             </Link>
-            <Link href={`/calendar?view=${view}&date=${dateParam(new Date())}`}>
+            <Link href={`/calendar?view=${view}&date=${dateParam(today)}`}>
               <Button variant="outline" size="sm">
                 Today
               </Button>

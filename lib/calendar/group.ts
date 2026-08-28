@@ -4,10 +4,15 @@ import type { VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 
-export function groupEventsByDay(events: Event[]): Map<string, Event[]> {
+// `timeZone` is required on all three functions below -- see dayKey's doc
+// comment. Bucketing an event/task by day using the executing runtime's
+// ambient zone (rather than an explicit viewer zone) is the same class of
+// bug as the calendar grid's own dates, just applied to which cell a chip
+// renders under instead of the cell labels themselves.
+export function groupEventsByDay(events: Event[], timeZone: string): Map<string, Event[]> {
   const map = new Map<string, Event[]>();
   for (const event of events) {
-    const key = dayKey(new Date(event.start_at));
+    const key = dayKey(new Date(event.start_at), timeZone);
     const existing = map.get(key) ?? [];
     existing.push(event);
     map.set(key, existing);
@@ -15,10 +20,13 @@ export function groupEventsByDay(events: Event[]): Map<string, Event[]> {
   return map;
 }
 
-export function groupVirtualOccurrencesByDay(occurrences: VirtualOccurrence[]): Map<string, VirtualOccurrence[]> {
+export function groupVirtualOccurrencesByDay(
+  occurrences: VirtualOccurrence[],
+  timeZone: string
+): Map<string, VirtualOccurrence[]> {
   const map = new Map<string, VirtualOccurrence[]>();
   for (const occurrence of occurrences) {
-    const key = dayKey(occurrence.startAt);
+    const key = dayKey(occurrence.startAt, timeZone);
     const existing = map.get(key) ?? [];
     existing.push(occurrence);
     map.set(key, existing);
@@ -30,10 +38,10 @@ export function groupVirtualOccurrencesByDay(occurrences: VirtualOccurrence[]): 
 // single fixed summary type -- callers get back exactly the type they put
 // in (a full task row, needed by TaskChip for edit/delete), no
 // widening/narrowing at the call site.
-export function groupTasksByDay<T extends { due_at: string }>(tasks: T[]): Map<string, T[]> {
+export function groupTasksByDay<T extends { due_at: string }>(tasks: T[], timeZone: string): Map<string, T[]> {
   const map = new Map<string, T[]>();
   for (const task of tasks) {
-    const key = dayKey(new Date(task.due_at));
+    const key = dayKey(new Date(task.due_at), timeZone);
     const existing = map.get(key) ?? [];
     existing.push(task);
     map.set(key, existing);
