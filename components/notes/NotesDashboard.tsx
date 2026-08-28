@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import Link from "next/link";
+import { Folder, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { NoteCard, type NoteCardData } from "@/components/notes/NoteCard";
 
@@ -9,6 +10,10 @@ export interface NoteGroup {
   id: string | null;
   name: string;
   notes: NoteCardData[];
+  /** Folders directly inside this one -- rendered as pill links at the top
+   * of the group so a deep tree stays a step away, not just reachable
+   * through the sidebar. Empty for a leaf folder or the "Unfiled" group. */
+  childFolders: { id: string; name: string }[];
 }
 
 export function NotesDashboard({ groups }: { groups: NoteGroup[] }) {
@@ -64,6 +69,20 @@ export function NotesDashboard({ groups }: { groups: NoteGroup[] }) {
       {filteredGroups.map((group) => (
         <div key={group.id ?? "unfiled"} className="flex flex-col gap-3">
           <h2 className="font-heading text-xl">{group.name}</h2>
+          {group.childFolders.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {group.childFolders.map((folder) => (
+                <Link
+                  key={folder.id}
+                  href={`/notes?folder=${folder.id}`}
+                  className="inline-flex items-center gap-1 rounded-full border border-accent px-2.5 py-1 text-xs text-accent-700 hover:bg-accent-100"
+                >
+                  <Folder className="size-3" />
+                  {folder.name}
+                </Link>
+              ))}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {group.notes.map((note) => (
               <NoteCard key={note.id} note={note} />

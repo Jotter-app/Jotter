@@ -62,16 +62,29 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
   if (typeof folderFilter === "string") {
     const target = findFolderNode(roots, folderFilter);
     groups = target
-      ? [{ id: target.id, name: target.name, notes: target.notes.map((note) => toCardData(note, target.name)) }]
+      ? [
+          {
+            id: target.id,
+            name: target.name,
+            notes: target.notes.map((note) => toCardData(note, target.name)),
+            childFolders: target.children.map((child) => ({ id: child.id, name: child.name })),
+          },
+        ]
       : [];
   } else {
     groups = roots.map((root) => ({
       id: root.id,
       name: root.name,
       notes: collectNotesInSubtree(root).map((note) => toCardData(note, root.name)),
+      childFolders: root.children.map((child) => ({ id: child.id, name: child.name })),
     }));
     if (rootNotes.length > 0) {
-      groups.push({ id: null, name: "Unfiled", notes: rootNotes.map((note) => toCardData(note, "Unfiled")) });
+      groups.push({
+        id: null,
+        name: "Unfiled",
+        notes: rootNotes.map((note) => toCardData(note, "Unfiled")),
+        childFolders: [],
+      });
     }
   }
 
