@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { createEvent, type EventFormState } from "@/lib/actions/events";
+import { localDatetimeInputToUtcIso } from "@/lib/dates/localDatetimeInputToUtcIso";
 
 const DATETIME_LOCAL_FORMAT = "yyyy-MM-dd'T'HH:mm";
 const initialState: EventFormState = { error: null };
@@ -58,7 +59,26 @@ export function AddEventDialog({
       }}
     >
       <DialogContent>
-        <form action={formAction}>
+        <form
+          action={formAction}
+          onSubmit={(e) => {
+            // The visible datetime-local inputs are timezone-naive by HTML
+            // spec, so they're never submitted directly -- each one's raw
+            // value is converted to a UTC ISO string here, client-side
+            // (parsing it anywhere else would use that runtime's timezone,
+            // not the user's), and mirrored into a hidden field carrying
+            // the real startAt/endAt names createEvent reads. This is the
+            // same bug/fix as TaskEditForm's dueAt, just via a native form
+            // action instead of a manually-built FormData.
+            const form = e.currentTarget;
+            const startVisible = form.elements.namedItem("startAtLocal") as HTMLInputElement;
+            const endVisible = form.elements.namedItem("endAtLocal") as HTMLInputElement;
+            const startHidden = form.elements.namedItem("startAt") as HTMLInputElement;
+            const endHidden = form.elements.namedItem("endAt") as HTMLInputElement;
+            startHidden.value = localDatetimeInputToUtcIso(startVisible.value) ?? "";
+            endHidden.value = localDatetimeInputToUtcIso(endVisible.value) ?? "";
+          }}
+        >
           <DialogHeader>
             <DialogTitle>New event</DialogTitle>
           </DialogHeader>
@@ -69,11 +89,13 @@ export function AddEventDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="event-start">Starts</Label>
-              <Input id="event-start" name="startAt" type="datetime-local" defaultValue={defaultStart} required />
+              <Input id="event-start" name="startAtLocal" type="datetime-local" defaultValue={defaultStart} required />
+              <input type="hidden" name="startAt" />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="event-end">Ends</Label>
-              <Input id="event-end" name="endAt" type="datetime-local" defaultValue={defaultEnd} required />
+              <Input id="event-end" name="endAtLocal" type="datetime-local" defaultValue={defaultEnd} required />
+              <input type="hidden" name="endAt" />
             </div>
             <div className="flex items-center gap-2">
               <Checkbox id="event-also-task" name="alsoCreateTask" defaultChecked={defaultEventCreatesTask} />
