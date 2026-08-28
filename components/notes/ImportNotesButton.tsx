@@ -3,15 +3,10 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { importNotes } from "@/lib/actions/noteImport";
+import { createClient } from "@/lib/supabase/client";
+import { createImportUploadUrl, importNotes, type UploadedImportFile } from "@/lib/actions/noteImport";
 
-// The upload itself (a zip's raw bytes, attachments included even though
-// they're discarded server-side) can exceed the Server Action body-size
-// limit before importNotes ever runs -- that fails as a framework-level
-// request error, not a normal returned result, so it needs its own catch
-// here rather than an `ok: false` branch.
-const UPLOAD_FAILED_MESSAGE =
-  "Import failed -- the upload didn't go through. If the file is very large, try a smaller batch or split it into multiple zips.";
+const UPLOAD_FAILED_MESSAGE = "Import failed -- the upload didn't go through. Please try again.";
 
 export function ImportNotesButton() {
   const router = useRouter();
@@ -21,13 +16,35 @@ export function ImportNotesButton() {
 
   function handleFilesSelected(files: FileList | null) {
     if (!files || files.length === 0) return;
-
-    const formData = new FormData();
-    for (const file of files) formData.append("files", file);
+    const fileList = Array.from(files);
 
     startTransition(async () => {
+      const supabase = createClient();
+      const uploads: UploadedImportFile[] = [];
+
       try {
-        const outcome = await importNotes(formData);
+        // Each file uploads straight from the browser to Supabase Storage
+        // via a signed URL, bypassing this app's own server entirely --
+        // Vercel's Serverless Function request-body limit (~4.5MB, not
+        // configurable) would otherwise reject a real vault export with
+        // attachments before the import logic ever ran.
+        for (const file of fileList) {
+          const prepared = await createImportUploadUrl(file.name);
+          if (!prepared.ok) {
+            setResult({ ok: false, text: prepared.error });
+            return;
+          }
+          const { error: uploadError } = await supabase.storage
+            .from("note-imports")
+            .uploadToSignedUrl(prepared.path, prepared.token, file);
+          if (uploadError) {
+            setResult({ ok: false, text: UPLOAD_FAILED_MESSAGE });
+            return;
+          }
+          uploads.push({ path: prepared.path, name: file.name });
+        }
+
+        const outcome = await importNotes(uploads);
         if (!outcome.ok) {
           setResult({ ok: false, text: outcome.error ?? "Import failed." });
           return;
