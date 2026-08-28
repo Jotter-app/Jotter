@@ -155,6 +155,7 @@ export type Database = {
           created_at: string
           folder_id: string | null
           id: string
+          starred: boolean
           title: string
           updated_at: string
           user_id: string
@@ -164,6 +165,7 @@ export type Database = {
           created_at?: string
           folder_id?: string | null
           id?: string
+          starred?: boolean
           title?: string
           updated_at?: string
           user_id: string
@@ -173,6 +175,7 @@ export type Database = {
           created_at?: string
           folder_id?: string | null
           id?: string
+          starred?: boolean
           title?: string
           updated_at?: string
           user_id?: string

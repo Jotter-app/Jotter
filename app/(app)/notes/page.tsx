@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Settings2 } from "lucide-react";
+import { Settings2, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buildFolderTree, collectNotesInSubtree, findFolderNode } from "@/lib/notes/tree";
 import { NotesTree } from "@/components/notes/NotesTree";
@@ -15,20 +15,23 @@ type NoteWithMeta = {
   folder_id: string | null;
   body_markdown: string;
   updated_at: string;
+  starred: boolean;
 };
 
 export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
-  const { folder: folderFilter } = await searchParams;
+  const { folder: folderFilter, starred: starredFilter } = await searchParams;
+  const showStarred = starredFilter === "1";
   const supabase = await createClient();
 
   const [{ data: folders }, { data: notes }, { data: noteTaggables }] = await Promise.all([
     supabase.from("folders").select().order("name"),
-    supabase.from("notes").select("id, title, folder_id, body_markdown, updated_at").order("title"),
+    supabase.from("notes").select("id, title, folder_id, body_markdown, updated_at, starred").order("title"),
     supabase.from("taggables").select("taggable_id, tags(*)").eq("taggable_type", "note"),
   ]);
 
   const notesWithMeta: NoteWithMeta[] = notes ?? [];
   const { roots, rootNotes } = buildFolderTree(folders ?? [], notesWithMeta);
+  const folderNameById = new Map((folders ?? []).map((f) => [f.id, f.name]));
 
   const tagsByNoteId = new Map<string, { id: string; name: string }[]>();
   const noteTagsById = new Map<string, NonNullable<NonNullable<typeof noteTaggables>[number]["tags"]>>();
@@ -49,6 +52,7 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
       updatedAt: note.updated_at,
       notebookName,
       tags: tagsByNoteId.get(note.id) ?? [],
+      starred: note.starred,
     };
   }
 
@@ -57,9 +61,26 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
   // things instead of dumping an entire subtree into one group. The
   // unfiltered "All notes" view is the one place notes still surface
   // recursively, grouped by top-level notebook, as a browse-everything
-  // overview.
+  // overview. "Starred" is its own cross-folder view -- each card keeps its
+  // own actual folder name (or "Unfiled") as its kicker, since a single
+  // "Starred" label on every card would lose the folder context this view
+  // doesn't otherwise group by.
   let groups: NoteGroup[];
-  if (typeof folderFilter === "string") {
+  let emptyMessage: string;
+  if (showStarred) {
+    const starred = notesWithMeta.filter((note) => note.starred);
+    groups = [
+      {
+        id: null,
+        name: "Starred",
+        notes: starred.map((note) =>
+          toCardData(note, note.folder_id ? (folderNameById.get(note.folder_id) ?? "Unfiled") : "Unfiled")
+        ),
+        childFolders: [],
+      },
+    ];
+    emptyMessage = "No starred notes yet -- click the star on a note to add it here.";
+  } else if (typeof folderFilter === "string") {
     const target = findFolderNode(roots, folderFilter);
     groups = target
       ? [
@@ -71,6 +92,7 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
           },
         ]
       : [];
+    emptyMessage = target ? `No notes directly in "${target.name}" yet.` : "This notebook no longer exists.";
   } else {
     groups = roots.map((root) => ({
       id: root.id,
@@ -86,6 +108,7 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
         childFolders: [],
       });
     }
+    emptyMessage = "No notes yet.";
   }
 
   return (
@@ -95,10 +118,19 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
           <Link
             href="/notes"
             className={`rounded-md px-2.5 py-1.5 text-sm font-medium ${
-              !folderFilter ? "bg-accent-100 text-accent-800" : "hover:bg-accent/40"
+              !folderFilter && !showStarred ? "bg-accent-100 text-accent-800" : "hover:bg-accent/40"
             }`}
           >
             All notes
+          </Link>
+          <Link
+            href="/notes?starred=1"
+            className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium ${
+              showStarred ? "bg-accent-100 text-accent-800" : "hover:bg-accent/40"
+            }`}
+          >
+            <Star className="size-3.5" fill={showStarred ? "currentColor" : "none"} />
+            Starred
           </Link>
         </div>
         <div className="flex flex-col gap-2">
@@ -118,7 +150,7 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
           </div>
         </div>
       </aside>
-      <NotesDashboard groups={groups} />
+      <NotesDashboard groups={groups} hasAnyNotes={notesWithMeta.length > 0} emptyMessage={emptyMessage} />
     </div>
   );
 }

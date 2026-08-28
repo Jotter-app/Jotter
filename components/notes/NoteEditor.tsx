@@ -13,7 +13,7 @@ import { NoteBodyEditor, type NoteBodyEditorHandle } from "@/components/notes/No
 import { ExportLink } from "@/components/notes/ExportLink";
 import { wrapSelection, toggleLinePrefix, insertLink } from "@/components/notes/editor/formattingCommands";
 import type { WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
-import { saveNote, createNoteFromWikilink } from "@/lib/actions/notes";
+import { saveNote, createNoteFromWikilink, setNoteStarred } from "@/lib/actions/notes";
 import { toggleTaskComplete } from "@/lib/actions/tasks";
 import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
 import type { Database } from "@/lib/supabase/database.types";
@@ -48,7 +48,14 @@ export function NoteEditor({
   const [body, setBody] = useState(note.body_markdown);
   const [dirty, setDirty] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const [starred, setStarred] = useState(note.starred);
   const bodyEditorRef = useRef<NoteBodyEditorHandle>(null);
+
+  function handleToggleStar() {
+    const next = !starred;
+    setStarred(next);
+    startTransition(() => setNoteStarred(note.id, next));
+  }
 
   function handleSave(force = false) {
     startTransition(async () => {
@@ -109,7 +116,17 @@ export function NoteEditor({
           </span>
         ))}
         <div className="ml-auto flex items-center gap-1">
-          <Star className="size-4 text-muted-foreground" aria-hidden="true" />
+          <button
+            type="button"
+            onClick={handleToggleStar}
+            aria-label={starred ? "Unstar this note" : "Star this note"}
+            aria-pressed={starred}
+            className={`flex size-7 items-center justify-center rounded-full ${
+              starred ? "text-accent" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Star className="size-4" fill={starred ? "currentColor" : "none"} />
+          </button>
           <ExportLink scope={{ type: "note", id: note.id }} />
         </div>
       </div>

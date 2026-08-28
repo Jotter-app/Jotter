@@ -16,23 +16,42 @@ export interface NoteGroup {
   childFolders: { id: string; name: string }[];
 }
 
-export function NotesDashboard({ groups }: { groups: NoteGroup[] }) {
+export function NotesDashboard({
+  groups,
+  hasAnyNotes,
+  emptyMessage,
+}: {
+  groups: NoteGroup[];
+  /** Whether the account has any notes at all -- distinct from this
+   * specific view (a folder, "Starred") having zero, which shouldn't claim
+   * "you have no notes yet" when the sidebar's other views clearly do. */
+  hasAnyNotes: boolean;
+  /** Shown instead of the onboarding empty state when the account has
+   * notes but this view has none -- contextual to what's being viewed
+   * (a folder, "Starred"), computed by the page. */
+  emptyMessage: string;
+}) {
   const [query, setQuery] = useState("");
 
+  // Drops a group only when it's truly empty -- no notes (after search) AND
+  // no child folders -- so a parent folder that's all subfolders and no
+  // notes of its own (e.g. "Long-Form Scripts" containing "Finished") still
+  // shows its subfolder pills instead of falling through to the
+  // emptyMessage case, which is reserved for a view with nothing to show
+  // at all (e.g. a genuinely empty "Starred").
   const filteredGroups = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return groups;
     return groups
       .map((group) => ({
         ...group,
-        notes: group.notes.filter(
-          (note) => note.title.toLowerCase().includes(q) || note.bodyMarkdown.toLowerCase().includes(q)
-        ),
+        notes: q
+          ? group.notes.filter(
+              (note) => note.title.toLowerCase().includes(q) || note.bodyMarkdown.toLowerCase().includes(q)
+            )
+          : group.notes,
       }))
-      .filter((group) => group.notes.length > 0);
+      .filter((group) => group.notes.length > 0 || group.childFolders.length > 0);
   }, [groups, query]);
-
-  const isEmpty = groups.every((group) => group.notes.length === 0);
 
   return (
     <div className="flex flex-1 flex-col gap-5 overflow-auto p-6">
@@ -46,7 +65,7 @@ export function NotesDashboard({ groups }: { groups: NoteGroup[] }) {
         />
       </div>
 
-      {isEmpty && (
+      {!hasAnyNotes && (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed p-10 text-center">
           <span className="flex size-16 items-center justify-center rounded-full bg-accent-100 text-3xl">📝</span>
           <h2 className="font-heading text-xl">Capture it before it&apos;s gone</h2>
@@ -60,9 +79,9 @@ export function NotesDashboard({ groups }: { groups: NoteGroup[] }) {
         </div>
       )}
 
-      {!isEmpty && filteredGroups.length === 0 && (
+      {hasAnyNotes && filteredGroups.length === 0 && (
         <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-          No notes match &quot;{query}&quot;.
+          {query ? `No notes match "${query}".` : emptyMessage}
         </p>
       )}
 
