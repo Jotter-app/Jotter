@@ -142,9 +142,9 @@ function FolderRow({
               className="h-7 max-w-48"
             />
           ) : (
-            <button type="button" className="text-sm font-medium" onClick={() => setRenaming(true)}>
+            <Link href={`/notes?folder=${node.id}`} className="text-sm font-medium">
               {node.name}
-            </button>
+            </Link>
           )}
 
           <div className="ml-auto flex items-center opacity-0 transition-opacity group-hover/row:opacity-100 has-[:focus]:opacity-100">
