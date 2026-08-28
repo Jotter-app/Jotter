@@ -1,4 +1,5 @@
 import { addWeeks, endOfDay, endOfMonth, endOfWeek, startOfDay } from "date-fns";
+import { TZDate } from "@date-fns/tz";
 
 export interface DueDateGroups<T> {
   overdue: T[];
@@ -20,15 +21,25 @@ export interface DueDateGroups<T> {
 // skipped over rather than needing special-casing: a date that's already
 // within next week claims the "next week" bucket before "this month" is
 // ever considered, and This Month legitimately ends up empty.
+// `timeZone` is required, not defaulted -- see formatRelativeDays for why a
+// defaulted "local" timezone is exactly the bug this parameter closes off.
+// The week/month boundaries below must be computed in the *viewer's* zone,
+// not whichever runtime executes this (this function runs server-side, in
+// a Server Component that never hydrates, so a wrong zone here doesn't
+// throw a hydration error the way a mismatched Client Component would --
+// it just silently sorts a task into the wrong section, invisibly, since
+// nothing client-side ever recomputes or corrects it).
 export function groupTasksByDueDate<T extends { due_at: string | null }>(
   tasks: T[],
+  timeZone: string,
   referenceDate: Date = new Date()
 ): DueDateGroups<T> {
-  const todayStart = startOfDay(referenceDate);
-  const todayEnd = endOfDay(referenceDate);
-  const thisWeekEnd = endOfWeek(referenceDate);
-  const nextWeekEnd = endOfWeek(addWeeks(referenceDate, 1));
-  const thisMonthEnd = endOfMonth(referenceDate);
+  const zonedReference = new TZDate(referenceDate, timeZone);
+  const todayStart = startOfDay(zonedReference);
+  const todayEnd = endOfDay(zonedReference);
+  const thisWeekEnd = endOfWeek(zonedReference);
+  const nextWeekEnd = endOfWeek(addWeeks(zonedReference, 1));
+  const thisMonthEnd = endOfMonth(zonedReference);
 
   const groups: DueDateGroups<T> = {
     overdue: [],

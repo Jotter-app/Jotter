@@ -8,10 +8,12 @@ import { TagFilterRow } from "@/components/tags/TagFilterRow";
 import { groupTasksByDueDate } from "@/lib/tasks/groupTasksByDueDate";
 import { getHideNoteOnlyTags } from "@/lib/actions/settings";
 import { filterNoteOnlyTags } from "@/lib/tags/filterNoteOnlyTags";
+import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 
 export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   const { tag: tagFilter } = await searchParams;
   const supabase = await createClient();
+  const timeZone = await getUserTimeZone();
 
   const [
     { data: tasks },
@@ -62,7 +64,10 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
   const completed = rows.filter((t) => t.completed_at !== null && t.archived_at === null);
   const archived = rows.filter((t) => t.archived_at !== null);
 
-  const { overdue, today, thisWeek, nextWeek, thisMonth, laterCount, noDueDate } = groupTasksByDueDate(active);
+  const { overdue, today, thisWeek, nextWeek, thisMonth, laterCount, noDueDate } = groupTasksByDueDate(
+    active,
+    timeZone
+  );
 
   // A restrained accent per section: overdue earns a deeper accent shade
   // for urgency, today earns the app's primary accent color, the rest

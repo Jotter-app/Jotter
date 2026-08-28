@@ -2,11 +2,12 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { materializeOccurrenceAndGenerateNote } from "@/lib/actions/events";
 import { formatRelativeDays } from "@/lib/dates/relativeDays";
+import { formatInTimeZone } from "@/lib/dates/formatInTimeZone";
+import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import type { VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 
 // A virtual occurrence isn't a real row yet, so it deliberately has none of
@@ -18,6 +19,7 @@ import type { VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 export function RecurringOccurrenceChip({ occurrence }: { occurrence: VirtualOccurrence }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const timeZone = useTimeZone();
 
   function handleGenerateNote() {
     startTransition(async () => {
@@ -46,8 +48,9 @@ export function RecurringOccurrenceChip({ occurrence }: { occurrence: VirtualOcc
       <PopoverContent className="w-56">
         <p className="text-sm font-medium">{occurrence.title}</p>
         <p className="text-xs text-muted-foreground">
-          {formatRelativeDays(occurrence.startAt)} &middot; {format(occurrence.startAt, "MMM d, h:mm a")} &ndash;{" "}
-          {format(occurrence.endAt, "h:mm a")}
+          {formatRelativeDays(occurrence.startAt, timeZone)} &middot;{" "}
+          {formatInTimeZone(occurrence.startAt, timeZone, "MMM d, h:mm a")} &ndash;{" "}
+          {formatInTimeZone(occurrence.endAt, timeZone, "h:mm a")}
         </p>
         <p className="mt-1 text-xs text-muted-foreground">Not yet scheduled &mdash; part of a recurring series.</p>
         <div className="mt-2">
