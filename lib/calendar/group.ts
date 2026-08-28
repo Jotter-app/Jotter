@@ -1,5 +1,6 @@
 import { dayKey } from "@/lib/calendar/grid";
 import type { Database } from "@/lib/supabase/database.types";
+import type { VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 
@@ -9,6 +10,17 @@ export function groupEventsByDay(events: Event[]): Map<string, Event[]> {
     const key = dayKey(new Date(event.start_at));
     const existing = map.get(key) ?? [];
     existing.push(event);
+    map.set(key, existing);
+  }
+  return map;
+}
+
+export function groupVirtualOccurrencesByDay(occurrences: VirtualOccurrence[]): Map<string, VirtualOccurrence[]> {
+  const map = new Map<string, VirtualOccurrence[]>();
+  for (const occurrence of occurrences) {
+    const key = dayKey(occurrence.startAt);
+    const existing = map.get(key) ?? [];
+    existing.push(occurrence);
     map.set(key, existing);
   }
   return map;

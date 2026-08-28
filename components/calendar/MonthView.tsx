@@ -8,9 +8,10 @@ import { AddEventDialog } from "@/components/calendar/AddEventDialog";
 import { UnscheduledTasksPanel } from "@/components/calendar/UnscheduledTasksPanel";
 import type { LinkedTask } from "@/components/calendar/EventChip";
 import { buildMonthGrid, dayKey } from "@/lib/calendar/grid";
-import { groupEventsByDay, groupTasksByDay } from "@/lib/calendar/group";
+import { groupEventsByDay, groupTasksByDay, groupVirtualOccurrencesByDay } from "@/lib/calendar/group";
 import { useEventDragAndDrop } from "@/lib/calendar/useEventDragAndDrop";
 import type { Database } from "@/lib/supabase/database.types";
+import type { VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type Task = Database["public"]["Tables"]["tasks"]["Row"] & { due_at: string };
@@ -28,6 +29,7 @@ export function MonthView({
   allTags,
   tagsByEventId,
   unscheduledTasks,
+  virtualOccurrences,
 }: {
   monthDate: Date;
   events: Event[];
@@ -37,6 +39,7 @@ export function MonthView({
   allTags?: Tag[];
   tagsByEventId?: Map<string, Tag[]>;
   unscheduledTasks?: UnscheduledTask[];
+  virtualOccurrences?: VirtualOccurrence[];
 }) {
   const [addEventDate, setAddEventDate] = useState<Date | null>(null);
   const { sensors, handleDragEnd } = useEventDragAndDrop();
@@ -44,6 +47,7 @@ export function MonthView({
   const weeks = buildMonthGrid(monthDate);
   const eventsByDay = groupEventsByDay(events);
   const tasksByDay = groupTasksByDay(tasksWithDueDate);
+  const virtualOccurrencesByDay = groupVirtualOccurrencesByDay(virtualOccurrences ?? []);
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
@@ -60,6 +64,7 @@ export function MonthView({
             date={date}
             events={eventsByDay.get(dayKey(date)) ?? []}
             tasksDue={tasksByDay.get(dayKey(date)) ?? []}
+            virtualOccurrences={virtualOccurrencesByDay.get(dayKey(date)) ?? []}
             dimmed={!isSameMonth(date, monthDate)}
             onAddEvent={setAddEventDate}
             linkedTasksById={linkedTasksById}
