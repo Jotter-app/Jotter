@@ -21,7 +21,7 @@ export default function RootError({
         <AlertTriangle className="size-6" />
       </div>
       <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold">Something went wrong</h1>
+        <h1 className="font-heading text-lg">Something went wrong</h1>
         <p className="text-sm text-muted-foreground">
           {error.message || "An unexpected error occurred."}
         </p>
