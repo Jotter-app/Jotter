@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Settings2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { buildFolderTree, collectNotesInSubtree } from "@/lib/notes/tree";
+import { buildFolderTree, collectNotesInSubtree, findFolderNode } from "@/lib/notes/tree";
 import { NotesTree } from "@/components/notes/NotesTree";
 import { ExportLink } from "@/components/notes/ExportLink";
 import { ImportNotesButton } from "@/components/notes/ImportNotesButton";
@@ -52,16 +52,27 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
     };
   }
 
-  let groups: NoteGroup[] = roots.map((root) => ({
-    id: root.id,
-    name: root.name,
-    notes: collectNotesInSubtree(root).map((note) => toCardData(note, root.name)),
-  }));
-  if (rootNotes.length > 0) {
-    groups.push({ id: null, name: "Unfiled", notes: rootNotes.map((note) => toCardData(note, "Unfiled")) });
-  }
+  // A folder filter focuses down to just that folder's own direct notes --
+  // not its descendants' -- so drilling into a deep tree actually narrows
+  // things instead of dumping an entire subtree into one group. The
+  // unfiltered "All notes" view is the one place notes still surface
+  // recursively, grouped by top-level notebook, as a browse-everything
+  // overview.
+  let groups: NoteGroup[];
   if (typeof folderFilter === "string") {
-    groups = groups.filter((group) => group.id === folderFilter);
+    const target = findFolderNode(roots, folderFilter);
+    groups = target
+      ? [{ id: target.id, name: target.name, notes: target.notes.map((note) => toCardData(note, target.name)) }]
+      : [];
+  } else {
+    groups = roots.map((root) => ({
+      id: root.id,
+      name: root.name,
+      notes: collectNotesInSubtree(root).map((note) => toCardData(note, root.name)),
+    }));
+    if (rootNotes.length > 0) {
+      groups.push({ id: null, name: "Unfiled", notes: rootNotes.map((note) => toCardData(note, "Unfiled")) });
+    }
   }
 
   return (

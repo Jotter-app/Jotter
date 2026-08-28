@@ -55,6 +55,21 @@ export function collectNotesInSubtree<N extends { folder_id: string | null }>(no
   return [...node.notes, ...node.children.flatMap((child) => collectNotesInSubtree(child))];
 }
 
+/** Finds a folder anywhere in the tree by id, at any depth -- for
+ * resolving a `?folder=` filter to the one folder whose *direct* notes
+ * (not its descendants') the dashboard should show. */
+export function findFolderNode<N extends { folder_id: string | null }>(
+  roots: FolderNode<N>[],
+  id: string
+): FolderNode<N> | undefined {
+  for (const node of roots) {
+    if (node.id === id) return node;
+    const found = findFolderNode(node.children, id);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 /** Flat, indented list of folders for a "move to" picker, excluding a
  * folder and its own descendants (a folder can't be moved into itself). */
 export function flattenForPicker<N extends { folder_id: string | null }>(roots: FolderNode<N>[], excludeSubtreeRootId?: string): { id: string; label: string }[] {

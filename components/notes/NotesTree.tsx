@@ -117,15 +117,19 @@ function FolderRow({
           {depth === 0 ? (
             <Link
               href={`/notes?folder=${node.id}`}
-              title={`View ${node.name} in the dashboard`}
+              title={`View notes directly in ${node.name}`}
               className={`flex size-6 shrink-0 items-center justify-center rounded-full ${notebookAccentClass(node.id)}`}
             >
               {expanded ? <FolderOpen className="size-3.5" /> : <Folder className="size-3.5" />}
             </Link>
-          ) : expanded ? (
-            <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
           ) : (
-            <Folder className="size-4 shrink-0 text-muted-foreground" />
+            <Link
+              href={`/notes?folder=${node.id}`}
+              title={`View notes directly in ${node.name}`}
+              className="flex size-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+            >
+              {expanded ? <FolderOpen className="size-4" /> : <Folder className="size-4" />}
+            </Link>
           )}
 
           {renaming ? (
@@ -153,6 +157,7 @@ function FolderRow({
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
+          <ContextMenuItem onClick={() => setRenaming(true)}>Rename</ContextMenuItem>
           <ContextMenuItem render={<a href={buildExportHref({ type: "folder", id: node.id })} />}>
             Export
           </ContextMenuItem>
@@ -179,7 +184,13 @@ function FolderRow({
       {expanded && (
         <div className="flex flex-col gap-1">
           {node.children.map((child) => (
-            <FolderRow key={child.id} node={child} depth={depth + 1} allFolders={allFolders} />
+            <FolderRow
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              allFolders={allFolders}
+              activeFolderId={activeFolderId}
+            />
           ))}
           {node.notes.map((note) => (
             <NoteRow key={note.id} note={note} depth={depth + 1} allFolders={flattenForPicker(allFolders)} />
