@@ -5,8 +5,17 @@ import Link from "next/link";
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { FolderDeleteDialog } from "@/components/notes/FolderDeleteDialog";
-import { ExportLink } from "@/components/notes/ExportLink";
+import { buildExportHref } from "@/components/notes/ExportLink";
 import { createFolder, renameFolder, moveFolder } from "@/lib/actions/folders";
 import { createNote, deleteNote, moveNote } from "@/lib/actions/notes";
 import { countNotesInSubtree, flattenForPicker, type FolderNode } from "@/lib/notes/tree";
@@ -89,82 +98,83 @@ function FolderRow({
     // (quadratically, not linearly), eventually shoving deeply-nested
     // rows so far right their titles render off the edge of the card.
     <div>
-      <div
-        className={`group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40 ${
-          activeFolderId === node.id ? "bg-accent-100" : ""
-        }`}
-        style={{ marginLeft: depth * 16 }}
-      >
-        <button
-          type="button"
-          onClick={() => setExpanded((e) => !e)}
-          className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"
-          aria-label={expanded ? "Collapse" : "Expand"}
+      <ContextMenu>
+        <ContextMenuTrigger
+          className={`group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40 ${
+            activeFolderId === node.id ? "bg-accent-100" : ""
+          }`}
+          style={{ marginLeft: depth * 16 }}
         >
-          {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-        </button>
-
-        {depth === 0 ? (
-          <Link
-            href={`/notes?folder=${node.id}`}
-            title={`View ${node.name} in the dashboard`}
-            className={`flex size-6 shrink-0 items-center justify-center rounded-full ${notebookAccentClass(node.id)}`}
+          <button
+            type="button"
+            onClick={() => setExpanded((e) => !e)}
+            className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"
+            aria-label={expanded ? "Collapse" : "Expand"}
           >
-            {expanded ? <FolderOpen className="size-3.5" /> : <Folder className="size-3.5" />}
-          </Link>
-        ) : expanded ? (
-          <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
-        ) : (
-          <Folder className="size-4 shrink-0 text-muted-foreground" />
-        )}
-
-        {renaming ? (
-          <Input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={handleRename}
-            onKeyDown={(e) => e.key === "Enter" && handleRename()}
-            className="h-7 max-w-48"
-          />
-        ) : (
-          <button type="button" className="text-sm font-medium" onClick={() => setRenaming(true)}>
-            {node.name}
+            {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
           </button>
-        )}
 
-        <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 has-[:focus]:opacity-100">
-          <ExportLink scope={{ type: "folder", id: node.id }} />
+          {depth === 0 ? (
+            <Link
+              href={`/notes?folder=${node.id}`}
+              title={`View ${node.name} in the dashboard`}
+              className={`flex size-6 shrink-0 items-center justify-center rounded-full ${notebookAccentClass(node.id)}`}
+            >
+              {expanded ? <FolderOpen className="size-3.5" /> : <Folder className="size-3.5" />}
+            </Link>
+          ) : expanded ? (
+            <FolderOpen className="size-4 shrink-0 text-muted-foreground" />
+          ) : (
+            <Folder className="size-4 shrink-0 text-muted-foreground" />
+          )}
 
-          <select
-            className="rounded border bg-transparent text-xs text-muted-foreground"
-            value=""
-            disabled={isPending}
-            onChange={(e) => {
-              if (!e.target.value) return;
-              const value = e.target.value === "__root__" ? null : e.target.value;
-              startTransition(() => moveFolder(node.id, value));
-            }}
-          >
-            <option value="" disabled>
-              Move to...
-            </option>
-            <option value="__root__">Root</option>
-            {moveOptions.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          {renaming ? (
+            <Input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={handleRename}
+              onKeyDown={(e) => e.key === "Enter" && handleRename()}
+              className="h-7 max-w-48"
+            />
+          ) : (
+            <button type="button" className="text-sm font-medium" onClick={() => setRenaming(true)}>
+              {node.name}
+            </button>
+          )}
 
-          <FolderDeleteDialog
-            folderId={node.id}
-            folderName={node.name}
-            hasContents={hasContents}
-            totalNoteCount={countNotesInSubtree(node)}
-          />
-        </div>
-      </div>
+          <div className="ml-auto flex items-center opacity-0 transition-opacity group-hover/row:opacity-100 has-[:focus]:opacity-100">
+            <FolderDeleteDialog
+              folderId={node.id}
+              folderName={node.name}
+              hasContents={hasContents}
+              totalNoteCount={countNotesInSubtree(node)}
+            />
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem render={<a href={buildExportHref({ type: "folder", id: node.id })} />}>
+            Export
+          </ContextMenuItem>
+          <ContextMenuSub>
+            <ContextMenuSubTrigger>Move to</ContextMenuSubTrigger>
+            <ContextMenuSubContent>
+              <ContextMenuItem disabled={isPending} onClick={() => startTransition(() => moveFolder(node.id, null))}>
+                Root
+              </ContextMenuItem>
+              {moveOptions.map((opt) => (
+                <ContextMenuItem
+                  key={opt.id}
+                  disabled={isPending}
+                  onClick={() => startTransition(() => moveFolder(node.id, opt.id))}
+                >
+                  {opt.label}
+                </ContextMenuItem>
+              ))}
+            </ContextMenuSubContent>
+          </ContextMenuSub>
+        </ContextMenuContent>
+      </ContextMenu>
 
       {expanded && (
         <div className="flex flex-col gap-1">
@@ -195,43 +205,38 @@ function NoteRow({
   const [, startTransition] = useTransition();
 
   return (
-    <div
-      className="group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40"
-      style={{ marginLeft: depth * 16 }}
-    >
-      <span className="size-4 shrink-0" />
-      <FileText className="size-4 shrink-0 text-muted-foreground" />
-      <Link href={`/notes/${note.id}`} className="flex-1 truncate text-sm hover:underline">
-        {note.title || "Untitled"}
-      </Link>
-      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover/row:opacity-100 has-[:focus]:opacity-100">
-        <ExportLink scope={{ type: "note", id: note.id }} />
-
-        <select
-          className="rounded border bg-transparent text-xs text-muted-foreground"
-          value=""
-          onChange={(e) => {
-            if (!e.target.value) return;
-            const value = e.target.value === "__root__" ? null : e.target.value;
-            startTransition(() => moveNote(note.id, value));
-          }}
-        >
-          <option value="" disabled>
-            Move to...
-          </option>
-          <option value="__root__">Root</option>
-          {allFolders.map((opt) => (
-            <option key={opt.id} value={opt.id}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <ConfirmDeleteButton
-          title={`Delete "${note.title || "Untitled"}"?`}
-          onConfirm={() => startTransition(() => deleteNote(note.id))}
-        />
-      </div>
-    </div>
+    <ContextMenu>
+      <ContextMenuTrigger
+        className="group/row flex items-center gap-1.5 rounded-md py-1 pr-1 hover:bg-accent/40"
+        style={{ marginLeft: depth * 16 }}
+      >
+        <span className="size-4 shrink-0" />
+        <FileText className="size-4 shrink-0 text-muted-foreground" />
+        <Link href={`/notes/${note.id}`} className="flex-1 truncate text-sm hover:underline">
+          {note.title || "Untitled"}
+        </Link>
+        <div className="flex items-center opacity-0 transition-opacity group-hover/row:opacity-100 has-[:focus]:opacity-100">
+          <ConfirmDeleteButton
+            title={`Delete "${note.title || "Untitled"}"?`}
+            onConfirm={() => startTransition(() => deleteNote(note.id))}
+          />
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem render={<a href={buildExportHref({ type: "note", id: note.id })} />}>Export</ContextMenuItem>
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>Move to</ContextMenuSubTrigger>
+          <ContextMenuSubContent>
+            <ContextMenuItem onClick={() => startTransition(() => moveNote(note.id, null))}>Root</ContextMenuItem>
+            {allFolders.map((opt) => (
+              <ContextMenuItem key={opt.id} onClick={() => startTransition(() => moveNote(note.id, opt.id))}>
+                {opt.label}
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
