@@ -40,7 +40,7 @@ export function NoteEditor({
   linkedTasks: TaskOption[];
   allNoteTitles: WikilinkCandidate[];
   backlinks: Backlink[];
-  breadcrumb: string[];
+  breadcrumb: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -101,9 +101,11 @@ export function NoteEditor({
 
       <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {breadcrumb.map((segment, i) => (
-          <span key={i} className="flex items-center gap-1.5">
+          <span key={segment.id} className="flex items-center gap-1.5">
             {i > 0 && <ChevronRight className="size-3" />}
-            {segment}
+            <Link href={`/notes?folder=${segment.id}`} className="hover:text-foreground hover:underline">
+              {segment.name}
+            </Link>
           </span>
         ))}
         <div className="ml-auto flex items-center gap-1">
