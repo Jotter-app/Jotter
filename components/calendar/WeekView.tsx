@@ -50,7 +50,7 @@ export function WeekView({
   const virtualOccurrencesByDay = groupVirtualOccurrencesByDay(virtualOccurrences ?? [], timeZone);
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext id="calendar-week-grid" sensors={sensors} onDragEnd={handleDragEnd}>
       <UnscheduledTasksPanel tasks={unscheduledTasks ?? []} />
       <div className="grid grid-cols-7 gap-2 text-sm">
         {days.map((date) => (

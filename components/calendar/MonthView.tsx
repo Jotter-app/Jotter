@@ -52,7 +52,7 @@ export function MonthView({
   const virtualOccurrencesByDay = groupVirtualOccurrencesByDay(virtualOccurrences ?? [], timeZone);
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext id="calendar-month-grid" sensors={sensors} onDragEnd={handleDragEnd}>
       <UnscheduledTasksPanel tasks={unscheduledTasks ?? []} />
       <div className="grid grid-cols-7 gap-2 text-sm">
         {WEEKDAY_LABELS.map((label) => (
