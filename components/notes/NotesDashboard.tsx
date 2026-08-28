@@ -41,7 +41,19 @@ export function NotesDashboard({ groups }: { groups: NoteGroup[] }) {
         />
       </div>
 
-      {isEmpty && <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">No notes yet -- create one from the sidebar.</p>}
+      {isEmpty && (
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed p-10 text-center">
+          <span className="flex size-16 items-center justify-center rounded-full bg-accent-100 text-3xl">📝</span>
+          <h2 className="font-heading text-xl">Capture it before it&apos;s gone</h2>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            Jot a note, and any line can turn into a task or calendar event -- create your first one from the
+            sidebar.
+          </p>
+          <p className="rounded-full bg-muted px-4 py-2 text-xs">
+            <span className="font-mono text-accent-700">/task</span> Call the vet <strong>Friday 9am</strong>
+          </p>
+        </div>
+      )}
 
       {!isEmpty && filteredGroups.length === 0 && (
         <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">

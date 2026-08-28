@@ -27,10 +27,10 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <header className="sticky top-0 z-40 flex items-center justify-between gap-4 border-b bg-background/95 px-4 py-2.5 backdrop-blur supports-backdrop-filter:bg-background/75">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="flex size-7 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+            <div className="flex size-7 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
               J
             </div>
-            <span className="hidden font-semibold sm:inline">Jotter</span>
+            <span className="hidden font-heading text-lg text-accent-700 sm:inline">Jotter</span>
           </div>
           <TopNav />
         </div>
@@ -51,7 +51,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           </form>
         </div>
       </header>
-      <div className="flex flex-1 bg-muted/30">{children}</div>
+      <div className="flex flex-1">{children}</div>
     </div>
   );
 }

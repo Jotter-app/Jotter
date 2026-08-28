@@ -111,9 +111,10 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       )}
 
       {active.length === 0 && (
-        <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">
-          No tasks yet -- add one above.
-        </p>
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed p-10 text-center">
+          <span className="flex size-14 items-center justify-center rounded-full bg-accent-100 text-2xl">✓</span>
+          <p className="text-sm text-muted-foreground">No tasks yet -- add one above.</p>
+        </div>
       )}
 
       {laterCount > 0 && (
