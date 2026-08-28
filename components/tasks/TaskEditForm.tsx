@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { PRIORITY_LEVELS, priorityLabel } from "@/lib/tasks/priority";
 import { updateTask } from "@/lib/actions/tasks";
+import { localDatetimeInputToUtcIso } from "@/lib/dates/localDatetimeInputToUtcIso";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
@@ -50,7 +51,15 @@ export function TaskEditForm({
     formData.set("title", title);
     formData.set("priority", String(priority));
     formData.set("expectedUpdatedAt", task.updated_at);
-    if (dueAt) formData.set("dueAt", dueAt);
+    // Converted to a UTC ISO string here, client-side, before it ever
+    // reaches the server -- the <input type="datetime-local"> value has no
+    // timezone info by design, so parsing it as a Date only means what the
+    // user intended when done in their own browser. Doing this same
+    // conversion server-side would silently reinterpret it in the server's
+    // runtime timezone (UTC on Vercel) instead, shifting the stored time
+    // by the user's UTC offset -- this was a real, reported bug.
+    const dueAtIso = dueAt ? localDatetimeInputToUtcIso(dueAt) : null;
+    if (dueAtIso) formData.set("dueAt", dueAtIso);
     if (force) formData.set("force", "true");
     startTransition(async () => {
       const result = await updateTask(formData);
