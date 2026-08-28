@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format, formatDistanceToNow } from "date-fns";
-import { Bold, Italic, Heading1, ListChecks, Link2, ChevronRight, Star } from "lucide-react";
+import { Bold, Italic, Heading1, ListChecks, ListTodo, Link2, ChevronRight, Star } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { TagPicker } from "@/components/tags/TagPicker";
@@ -15,7 +15,10 @@ import { wrapSelection, toggleLinePrefix, insertLink } from "@/components/notes/
 import type { WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
 import { saveNote, createNoteFromWikilink, setNoteStarred } from "@/lib/actions/notes";
 import { toggleTaskComplete } from "@/lib/actions/tasks";
+import { createTaskFromNoteLine } from "@/lib/actions/taskNoteLinks";
+import { createEventFromNoteText } from "@/lib/actions/events";
 import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
+import type { QueryableNote, QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Note = Database["public"]["Tables"]["notes"]["Row"];
@@ -38,6 +41,8 @@ export function NoteEditor({
   allNoteTitles,
   backlinks,
   breadcrumb,
+  queryableTasks,
+  queryableNotes,
 }: {
   note: Note;
   allTags: Tag[];
@@ -47,6 +52,8 @@ export function NoteEditor({
   allNoteTitles: WikilinkCandidate[];
   backlinks: Backlink[];
   breadcrumb: { id: string; name: string }[];
+  queryableTasks: QueryableTask[];
+  queryableNotes: QueryableNote[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -78,6 +85,44 @@ export function NoteEditor({
 
   function handleToggleLinkedTask(taskId: string, checked: boolean, dueAt: string | null) {
     startTransition(() => toggleTaskComplete(taskId, checked, dueAt));
+  }
+
+  // Unlike handleToggleLinkedTask, this refreshes the route after toggling.
+  // A linked task's checkbox already stays live because toggleTaskComplete
+  // revalidates every note it's linked to (which includes this one); a task
+  // surfaced only through a query has no such guarantee, so its checkbox
+  // explicitly refreshes so the query's own view stays live too.
+  function handleToggleQueryTask(taskId: string, checked: boolean, dueAt: string | null) {
+    startTransition(async () => {
+      await toggleTaskComplete(taskId, checked, dueAt);
+      router.refresh();
+    });
+  }
+
+  function handleCreateTaskFromLine() {
+    withView((view) => {
+      const line = view.state.doc.lineAt(view.state.selection.main.head);
+      if (!line.text.trim()) return;
+      startTransition(async () => {
+        const result = await createTaskFromNoteLine(note.id, line.text);
+        if (result.ok && result.replacementLine) {
+          view.dispatch({ changes: { from: line.from, to: line.to, insert: result.replacementLine } });
+        }
+      });
+    });
+  }
+
+  function handleCreateEventFromLine(lineText: string, markerInsertPos: number) {
+    startTransition(async () => {
+      const result = await createEventFromNoteText(lineText);
+      if (result.ok && result.eventId) {
+        withView((view) =>
+          view.dispatch({
+            changes: { from: markerInsertPos, to: markerInsertPos, insert: `<!-- event:${result.eventId} -->` },
+          })
+        );
+      }
+    });
   }
 
   function handleWikilinkClick(target: WikilinkTarget) {
@@ -185,6 +230,10 @@ export function NoteEditor({
         onWikilinkClick={handleWikilinkClick}
         linkedTasks={linkedTasks}
         onToggleLinkedTask={handleToggleLinkedTask}
+        onCreateEvent={handleCreateEventFromLine}
+        queryableTasks={queryableTasks}
+        queryableNotes={queryableNotes}
+        onToggleQueryTask={handleToggleQueryTask}
       />
 
       <div className="flex items-center gap-1 rounded-full border bg-card px-2 py-1.5 shadow-sm">
@@ -232,6 +281,15 @@ export function NoteEditor({
           onClick={() => withView(insertLink)}
         >
           <Link2 />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Create linked task from this line"
+          onClick={handleCreateTaskFromLine}
+        >
+          <ListTodo />
         </Button>
         <div className="ml-auto flex items-center gap-3">
           <Button size="sm" onClick={() => handleSave(false)} disabled={isPending || !dirty}>

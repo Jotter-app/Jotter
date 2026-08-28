@@ -10,7 +10,10 @@ import { createLiveMarkdownPlugin, linkClickHandler, liveMarkdownTheme } from "@
 import { headingFoldExtension, suppressDefaultBlockFold } from "@/components/notes/editor/headingFold";
 import { createWikilinkExtensions, type WikilinkTarget } from "@/components/notes/editor/wikilinkPlugin";
 import { lineEmbedPlugin, lineEmbedTheme } from "@/components/notes/editor/lineEmbedPlugin";
+import { createDateDetectionPlugin, dateDetectionTheme } from "@/components/notes/editor/dateDetectionPlugin";
+import { createEmbeddedQueryPlugin, embeddedQueryTheme } from "@/components/notes/editor/embeddedQueryPlugin";
 import type { WikilinkCandidate } from "@/lib/notes/resolveWikilink";
+import type { QueryableNote, QueryableTask } from "@/lib/jotter/runEmbeddedQuery";
 
 interface SlashCommand {
   keyword: string;
@@ -118,6 +121,10 @@ export const NoteBodyEditor = forwardRef<
     onWikilinkClick?: (target: WikilinkTarget) => void;
     linkedTasks?: LinkedTaskInfo[];
     onToggleLinkedTask?: (taskId: string, checked: boolean, dueAt: string | null) => void;
+    onCreateEvent?: (lineText: string, markerInsertPos: number) => void;
+    queryableTasks?: QueryableTask[];
+    queryableNotes?: QueryableNote[];
+    onToggleQueryTask?: (taskId: string, checked: boolean, dueAt: string | null) => void;
   }
 >(function NoteBodyEditor(
   {
@@ -129,6 +136,10 @@ export const NoteBodyEditor = forwardRef<
     onWikilinkClick,
     linkedTasks = [],
     onToggleLinkedTask,
+    onCreateEvent,
+    queryableTasks = [],
+    queryableNotes = [],
+    onToggleQueryTask,
   },
   ref
 ) {
@@ -139,6 +150,10 @@ export const NoteBodyEditor = forwardRef<
   const onWikilinkClickRef = useRef(onWikilinkClick);
   const linkedTasksRef = useRef(linkedTasks);
   const onToggleLinkedTaskRef = useRef(onToggleLinkedTask);
+  const onCreateEventRef = useRef(onCreateEvent);
+  const queryableTasksRef = useRef(queryableTasks);
+  const queryableNotesRef = useRef(queryableNotes);
+  const onToggleQueryTaskRef = useRef(onToggleQueryTask);
   const [menu, setMenu] = useState<MenuState | null>(null);
   const menuRef = useRef<MenuState | null>(null);
 
@@ -154,6 +169,10 @@ export const NoteBodyEditor = forwardRef<
     onWikilinkClickRef.current = onWikilinkClick;
     linkedTasksRef.current = linkedTasks;
     onToggleLinkedTaskRef.current = onToggleLinkedTask;
+    onCreateEventRef.current = onCreateEvent;
+    queryableTasksRef.current = queryableTasks;
+    queryableNotesRef.current = queryableNotes;
+    onToggleQueryTaskRef.current = onToggleQueryTask;
     menuRef.current = menu;
   });
 
@@ -273,6 +292,14 @@ export const NoteBodyEditor = forwardRef<
         ),
         lineEmbedPlugin,
         lineEmbedTheme,
+        createDateDetectionPlugin((lineText, markerInsertPos) => onCreateEventRef.current?.(lineText, markerInsertPos)),
+        dateDetectionTheme,
+        createEmbeddedQueryPlugin(
+          () => queryableTasksRef.current,
+          () => queryableNotesRef.current,
+          (taskId, checked, dueAt) => onToggleQueryTaskRef.current?.(taskId, checked, dueAt)
+        ),
+        embeddedQueryTheme,
         EditorView.lineWrapping,
         editorTheme,
         liveMarkdownTheme,

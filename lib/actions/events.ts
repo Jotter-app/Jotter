@@ -6,6 +6,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
 import { insertTaskCore } from "@/lib/actions/tasks";
 import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
+import { parseQuickAdd } from "@/lib/dates/parseQuickAdd";
+import { DEFAULT_EVENT_DURATION_MS } from "@/lib/jotter/duration";
 import type { Database } from "@/lib/supabase/database.types";
 
 const eventSchema = z.object({
@@ -187,4 +189,37 @@ export async function deleteEvent(eventId: string, deleteLinkedTask = false) {
 
   revalidatePath("/calendar");
   revalidatePath("/tasks");
+}
+
+// Powers the note editor's in-note date-detection prompt. Reuses the exact
+// same parseQuickAdd title-stripping as quick-add itself, and the same
+// 1-hour default duration AddEventDialog/Jotter's implicit routing already
+// fall back to when there's no explicit end time.
+export async function createEventFromNoteTextCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  lineText: string
+): Promise<{ ok: boolean; eventId: string | null }> {
+  const { title, dueAt, endAt } = parseQuickAdd(lineText.trim());
+  if (!title || !dueAt) return { ok: false, eventId: null };
+
+  const result = await insertEventCore(supabase, userId, {
+    title,
+    startAt: dueAt.toISOString(),
+    endAt: (endAt ?? new Date(dueAt.getTime() + DEFAULT_EVENT_DURATION_MS)).toISOString(),
+  });
+  return { ok: result.ok, eventId: result.eventId };
+}
+
+export async function createEventFromNoteText(lineText: string) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return { ok: false, eventId: null };
+
+  const result = await createEventFromNoteTextCore(supabase, userId, lineText);
+
+  if (result.ok) {
+    revalidatePath("/calendar");
+    revalidatePath("/tasks");
+  }
+  return result;
 }
