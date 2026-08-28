@@ -26,8 +26,11 @@ export default async function NotePage({ params }: PageProps<"/notes/[noteId]">)
       .select("tags(*)")
       .eq("taggable_type", "note")
       .eq("taggable_id", noteId),
-    supabase.from("tasks").select("id, title, completed_at, due_at").order("title"),
-    supabase.from("task_note_links").select("tasks(id, title, completed_at, due_at)").eq("note_id", noteId),
+    supabase.from("tasks").select("id, title, completed_at, due_at, priority").order("title"),
+    supabase
+      .from("task_note_links")
+      .select("tasks(id, title, completed_at, due_at, priority)")
+      .eq("note_id", noteId),
     supabase.from("notes").select("id, title, updated_at").order("title"),
     supabase
       .from("note_links")

@@ -25,7 +25,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     supabase.from("tags").select().order("name"),
     supabase.from("taggables").select("tag_id, taggable_id, tags(*)").eq("taggable_type", "task"),
     supabase.from("notes").select("id, title").order("title"),
-    supabase.from("task_note_links").select("task_id, notes(id, title)"),
+    supabase.from("task_note_links").select("task_id, notes(id, title, body_markdown, updated_at)"),
     getHideNoteOnlyTags(),
   ]);
 
@@ -39,7 +39,10 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     tagsByTaskId.set(row.taggable_id, existing);
   }
 
-  const linkedNotesByTaskId = new Map<string, { id: string; title: string }[]>();
+  const linkedNotesByTaskId = new Map<
+    string,
+    { id: string; title: string; body_markdown: string; updated_at: string }[]
+  >();
   for (const row of taskNoteLinks ?? []) {
     if (!row.notes) continue;
     const existing = linkedNotesByTaskId.get(row.task_id) ?? [];

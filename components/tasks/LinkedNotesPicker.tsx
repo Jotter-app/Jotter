@@ -2,12 +2,16 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { formatDistanceToNow } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PreviewCard, PreviewCardContent, PreviewCardTrigger } from "@/components/ui/preview-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { linkTaskNote, unlinkTaskNote } from "@/lib/actions/taskNoteLinks";
+import { notePreviewSnippet } from "@/lib/notes/notePreviewSnippet";
 
 type NoteOption = { id: string; title: string };
+type LinkedNoteOption = NoteOption & { body_markdown: string; updated_at: string };
 
 // Mirrors TagPicker's search-and-assign UX, minus the "create new" step --
 // linking only ever attaches to an existing note, never creates one here.
@@ -18,7 +22,7 @@ export function LinkedNotesPicker({
 }: {
   taskId: string;
   allNotes: NoteOption[];
-  linkedNotes: NoteOption[];
+  linkedNotes: LinkedNoteOption[];
 }) {
   const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
@@ -42,9 +46,18 @@ export function LinkedNotesPicker({
     <div className="flex flex-wrap items-center gap-1">
       {linkedNotes.map((note) => (
         <span key={note.id} className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs">
-          <Link href={`/notes/${note.id}`} className="hover:underline">
-            {note.title || "Untitled"}
-          </Link>
+          <PreviewCard>
+            <PreviewCardTrigger render={<Link href={`/notes/${note.id}`} className="hover:underline" />}>
+              {note.title || "Untitled"}
+            </PreviewCardTrigger>
+            <PreviewCardContent>
+              <p className="font-medium">{note.title || "Untitled"}</p>
+              <p className="text-xs text-muted-foreground">
+                Edited {formatDistanceToNow(new Date(note.updated_at), { addSuffix: true })}
+              </p>
+              <p className="text-xs text-muted-foreground">{notePreviewSnippet(note.body_markdown)}</p>
+            </PreviewCardContent>
+          </PreviewCard>
           <button
             type="button"
             onClick={() => handleUnlink(note.id)}

@@ -7,6 +7,7 @@ import { parseQuickAdd } from "@/lib/dates/parseQuickAdd";
 import { extractAndStripTags } from "@/lib/markdown/extractTags";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
+import { appendTaskCompletionJournalCore } from "@/lib/notes/appendTaskCompletionJournal";
 import { currentUserId } from "@/lib/supabase/session";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -109,16 +110,30 @@ export async function toggleTaskComplete(taskId: string, completed: boolean, due
   // what moves it back to the normal active list in one step.
   if (!completed) updates.archived_at = null;
 
-  await supabase.from("tasks").update(updates).eq("id", taskId);
+  const { data: updatedTask } = await supabase
+    .from("tasks")
+    .update(updates)
+    .eq("id", taskId)
+    .select("title")
+    .single();
 
   // Completing a task cancels its pending reminder (no point being told
   // about something already done); un-completing restores it if the task
   // still has a due date.
   await syncTaskReminder(supabase, userId, taskId, completed ? null : dueAt);
 
+  // Every linked note gets a timestamped journal line -- a log, not a
+  // synced summary, so re-completing after an uncheck appends again rather
+  // than deduping.
+  if (completed && updatedTask) {
+    const touchedNoteIds = await appendTaskCompletionJournalCore(supabase, taskId, updatedTask.title);
+    for (const noteId of touchedNoteIds) revalidatePath(`/notes/${noteId}`);
+  }
+
   // Reachable from both the Tasks page and a calendar task chip.
   revalidatePath("/tasks");
   revalidatePath("/calendar");
+  revalidatePath("/notes");
 }
 
 export async function deleteTask(taskId: string) {

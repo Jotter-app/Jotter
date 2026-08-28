@@ -16,6 +16,7 @@ import type { Database } from "@/lib/supabase/database.types";
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
 type Tag = Database["public"]["Tables"]["tags"]["Row"];
 type NoteOption = { id: string; title: string };
+type LinkedNoteOption = NoteOption & { body_markdown: string; updated_at: string };
 
 export function TaskRow({
   task,
@@ -28,7 +29,7 @@ export function TaskRow({
   allTags: Tag[];
   assignedTags: Tag[];
   allNotes: NoteOption[];
-  linkedNotes: NoteOption[];
+  linkedNotes: LinkedNoteOption[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
