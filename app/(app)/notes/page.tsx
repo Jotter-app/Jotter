@@ -152,7 +152,12 @@ export default async function NotesPage({ searchParams }: PageProps<"/notes">) {
           </div>
         </div>
       </aside>
-      <NotesDashboard groups={groups} hasAnyNotes={notesWithMeta.length > 0} emptyMessage={emptyMessage} />
+      <NotesDashboard
+        groups={groups}
+        hasAnyNotes={notesWithMeta.length > 0}
+        emptyMessage={emptyMessage}
+        activeFolderId={typeof folderFilter === "string" ? folderFilter : null}
+      />
     </div>
   );
 }
