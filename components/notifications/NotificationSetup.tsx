@@ -4,42 +4,57 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { urlBase64ToUint8Array } from "@/lib/push/urlBase64ToUint8Array";
 
-type Status = "unsupported" | "default" | "granted" | "denied" | "pending";
-
-function detectStatus(): Status {
-  if (typeof window === "undefined") return "default";
-  if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-    return "unsupported";
-  }
-  return Notification.permission as Status;
-}
+type Status = "checking" | "unsupported" | "needs-subscription" | "subscribed" | "denied" | "pending";
 
 export function NotificationSetup() {
-  // Computed via a lazy initializer (runs once, on mount) rather than an
-  // effect + setState: this is a one-time read of external browser state,
-  // not a subscription, so there's nothing to synchronize on re-renders.
-  const [status, setStatus] = useState<Status>(detectStatus);
+  // Starts at "checking" rather than reading Notification.permission
+  // synchronously: permission alone can't tell us whether a push
+  // subscription actually exists server-side. A prior "granted" click that
+  // happened before NEXT_PUBLIC_VAPID_PUBLIC_KEY was configured (or whose
+  // subscribe() call otherwise failed) still leaves permission "granted"
+  // forever after, which would permanently hide this button under the old
+  // permission-only check even though push_subscriptions never got a row --
+  // there'd be no way back in from the UI short of the user manually
+  // resetting the site's browser permission. Checking the real subscription
+  // via getSubscription() instead means a failed/missing subscribe always
+  // leaves the button available to retry.
+  const [status, setStatus] = useState<Status>("checking");
 
   useEffect(() => {
-    if (status === "unsupported") return;
-    // Register the service worker eagerly so it's ready by the time the
-    // user opts in -- registration itself doesn't prompt for permission.
-    navigator.serviceWorker.register("/sw.js").catch(() => {});
-  }, [status]);
+    if (typeof window === "undefined") return;
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setStatus("unsupported");
+      return;
+    }
+    if (Notification.permission === "denied") {
+      setStatus("denied");
+      return;
+    }
+
+    // Registering here (not just on click) means the service worker is
+    // already active by the time the user opts in, and lets a returning
+    // visitor who's already subscribed skip straight to "subscribed"
+    // without ever seeing the button.
+    navigator.serviceWorker
+      .register("/sw.js")
+      .then((registration) => registration.pushManager.getSubscription())
+      .then((subscription) => setStatus(subscription ? "subscribed" : "needs-subscription"))
+      .catch(() => setStatus("needs-subscription"));
+  }, []);
 
   async function enable() {
     setStatus("pending");
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
-        setStatus(permission as Status);
+        setStatus(permission === "denied" ? "denied" : "needs-subscription");
         return;
       }
 
       const registration = await navigator.serviceWorker.ready;
       const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!publicKey) {
-        setStatus("granted");
+        setStatus("needs-subscription");
         return;
       }
 
@@ -54,14 +69,16 @@ export function NotificationSetup() {
         body: JSON.stringify(subscription.toJSON()),
       });
 
-      setStatus("granted");
+      setStatus("subscribed");
     } catch {
-      setStatus("default");
+      setStatus("needs-subscription");
     }
   }
 
-  // Nothing to do if unsupported, already granted, or the user already said no.
-  if (status === "unsupported" || status === "granted" || status === "denied") {
+  // Nothing to do while still checking, if unsupported, already subscribed,
+  // or the user already said no at the OS level (permission denied can't be
+  // re-prompted from a page -- only from the browser's own site settings).
+  if (status === "checking" || status === "unsupported" || status === "subscribed" || status === "denied") {
     return null;
   }
 
