@@ -19,7 +19,7 @@ const TASK_COMMAND_PREFIX = /^\/task\s+create\b/i;
  * else -- ordinary prose, a malformed command, an /event or /note line --
  * is left alone for the caller to leave untouched.
  */
-export function findTaskCommands(body: string, referenceDate: Date = new Date()): NoteTaskCommand[] {
+export function findTaskCommands(body: string, referenceDate: Date = new Date(), timeZone?: string): NoteTaskCommand[] {
   const lines = body.split("\n");
   const commands: NoteTaskCommand[] = [];
 
@@ -27,7 +27,7 @@ export function findTaskCommands(body: string, referenceDate: Date = new Date())
     const trimmed = line.trim();
     if (!TASK_COMMAND_PREFIX.test(trimmed)) return;
 
-    const parsed = parseExplicit(trimmed, referenceDate);
+    const parsed = parseExplicit(trimmed, referenceDate, timeZone);
     if (parsed.ok && parsed.intent && parsed.intent.route === "task") {
       commands.push({ lineIndex, intent: parsed.intent });
     }

@@ -26,7 +26,7 @@ function fail(error: string): ExplicitParseResult {
  * discarded on error: a failure just returns a message, the caller decides
  * what stays in the input box.
  */
-export function parseExplicit(input: string, referenceDate: Date = new Date()): ExplicitParseResult {
+export function parseExplicit(input: string, referenceDate: Date = new Date(), timeZone?: string): ExplicitParseResult {
   const trimmed = input.trim();
   if (!trimmed.startsWith("/")) {
     return fail("Commands start with /.");
@@ -85,7 +85,7 @@ export function parseExplicit(input: string, referenceDate: Date = new Date()): 
   const explicitTitle = quotedPrefix ? quotedPrefix[1] : null;
   const dateSource = quotedPrefix ? quotedPrefix[2] : remainder;
 
-  const { title: parsedTitle, dueAt, endAt: chronoEndAt } = parseQuickAdd(dateSource, referenceDate);
+  const { title: parsedTitle, dueAt, endAt: chronoEndAt } = parseQuickAdd(dateSource, referenceDate, timeZone);
   const { title: leftoverAfterTags, tags } = extractAndStripTags(parsedTitle);
 
   if (!dueAt) {

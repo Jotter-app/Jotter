@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
+import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 import { insertTaskCore } from "@/lib/actions/tasks";
 import { parseQuickAdd } from "@/lib/dates/parseQuickAdd";
 import { extractAndStripTags } from "@/lib/markdown/extractTags";
@@ -64,12 +65,13 @@ export async function createTaskFromNoteLineCore(
   supabase: SupabaseClient<Database>,
   userId: string,
   noteId: string,
-  lineText: string
+  lineText: string,
+  timeZone?: string
 ): Promise<{ ok: boolean; replacementLine: string | null }> {
   const trimmed = lineText.trim();
   if (!trimmed) return { ok: false, replacementLine: null };
 
-  const { title: titleWithTags, dueAt } = parseQuickAdd(trimmed);
+  const { title: titleWithTags, dueAt } = parseQuickAdd(trimmed, new Date(), timeZone);
   const { title, tags } = extractAndStripTags(titleWithTags);
   if (!title) return { ok: false, replacementLine: null };
 
@@ -84,7 +86,8 @@ export async function createTaskFromNoteLine(noteId: string, lineText: string) {
   const { supabase, userId } = await currentUserId();
   if (!userId) return { ok: false, replacementLine: null };
 
-  const result = await createTaskFromNoteLineCore(supabase, userId, noteId, lineText);
+  const timeZone = await getUserTimeZone();
+  const result = await createTaskFromNoteLineCore(supabase, userId, noteId, lineText, timeZone);
 
   if (result.ok) {
     revalidatePath("/tasks");

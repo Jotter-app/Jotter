@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
+import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 import { insertTaskCore } from "@/lib/actions/tasks";
 import { insertEventCore } from "@/lib/actions/events";
 import { insertNoteCore } from "@/lib/actions/notes";
@@ -36,7 +37,8 @@ export async function dispatchJotterCore(
   supabase: SupabaseClient<Database>,
   userId: string,
   rawInput: string,
-  routeOverride?: JotterRoute
+  routeOverride?: JotterRoute,
+  timeZone?: string
 ): Promise<JotterDispatchResult> {
   const trimmed = rawInput.trim();
   if (!trimmed) {
@@ -45,13 +47,13 @@ export async function dispatchJotterCore(
 
   let intent: JotterIntent;
   if (trimmed.startsWith("/")) {
-    const parsed = parseExplicit(trimmed);
+    const parsed = parseExplicit(trimmed, new Date(), timeZone);
     if (!parsed.ok || !parsed.intent) {
       return fail(parsed.error ?? "Could not parse that command.");
     }
     intent = parsed.intent;
   } else {
-    intent = parseImplicit(trimmed);
+    intent = parseImplicit(trimmed, new Date(), timeZone);
     if (routeOverride) intent = { ...intent, route: routeOverride };
   }
 
@@ -132,7 +134,8 @@ export async function dispatchJotter(
     return fail("Not signed in.");
   }
 
-  const result = await dispatchJotterCore(supabase, userId, rawInput, routeOverride);
+  const timeZone = await getUserTimeZone();
+  const result = await dispatchJotterCore(supabase, userId, rawInput, routeOverride, timeZone);
 
   if (result.ok) {
     if (result.route === "task") {

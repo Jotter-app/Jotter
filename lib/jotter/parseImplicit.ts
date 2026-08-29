@@ -33,7 +33,7 @@ function deriveNoteTitleAndBody(text: string): { title: string; body: string } {
  * (native chrono range, or the duration regex above) is what distinguishes
  * an event from a plain due-dated task.
  */
-export function parseImplicit(input: string, referenceDate: Date = new Date()): JotterIntent {
+export function parseImplicit(input: string, referenceDate: Date = new Date(), timeZone?: string): JotterIntent {
   const trimmed = input.trim();
 
   if (isNoteShaped(trimmed)) {
@@ -42,7 +42,7 @@ export function parseImplicit(input: string, referenceDate: Date = new Date()): 
     return { route: "note", title, noteBody: body, dueAt: null, endAt: null, tags };
   }
 
-  const { title: titleWithTags, dueAt, endAt: chronoEndAt } = parseQuickAdd(trimmed, referenceDate);
+  const { title: titleWithTags, dueAt, endAt: chronoEndAt } = parseQuickAdd(trimmed, referenceDate, timeZone);
   const { title, tags } = extractAndStripTags(titleWithTags);
 
   if (!dueAt) {

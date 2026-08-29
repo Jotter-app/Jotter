@@ -9,6 +9,7 @@ import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
 import { appendTaskCompletionJournalCore } from "@/lib/notes/appendTaskCompletionJournal";
 import { currentUserId } from "@/lib/supabase/session";
+import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 import type { Database } from "@/lib/supabase/database.types";
 
 export interface QuickAddFormState {
@@ -72,7 +73,8 @@ export async function createTaskFromQuickAdd(
     return { error: "Enter a task." };
   }
 
-  const { title: titleWithTags, dueAt } = parseQuickAdd(parsed.data);
+  const timeZone = await getUserTimeZone();
+  const { title: titleWithTags, dueAt } = parseQuickAdd(parsed.data, new Date(), timeZone);
   if (!titleWithTags) {
     return { error: "Enter a task." };
   }

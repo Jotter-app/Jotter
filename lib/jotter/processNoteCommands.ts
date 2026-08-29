@@ -24,9 +24,10 @@ export async function processNoteTaskCommands(
   supabase: SupabaseClient<Database>,
   userId: string,
   noteId: string,
-  body: string
+  body: string,
+  timeZone?: string
 ): Promise<string> {
-  const commands = findTaskCommands(body);
+  const commands = findTaskCommands(body, new Date(), timeZone);
   if (commands.length === 0) return body;
 
   const lines = body.split("\n");
