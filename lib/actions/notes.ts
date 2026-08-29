@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { currentUserId } from "@/lib/supabase/session";
+import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 import { extractTags } from "@/lib/markdown/extractTags";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 import { processNoteTaskCommands } from "@/lib/jotter/processNoteCommands";
@@ -154,7 +155,8 @@ export async function saveNote(
   // with a plain checkbox -- see lib/jotter/processNoteCommands.ts. A no-op
   // (returns bodyMarkdown unchanged) when there's nothing to process, which
   // is the common case on every ordinary save.
-  const processedBody = await processNoteTaskCommands(supabase, userId, noteId, bodyMarkdown);
+  const timeZone = await getUserTimeZone();
+  const processedBody = await processNoteTaskCommands(supabase, userId, noteId, bodyMarkdown, timeZone);
 
   const { data: updated, error } = await supabase
     .from("notes")

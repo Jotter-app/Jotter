@@ -65,4 +65,27 @@ describe("parseQuickAdd", () => {
     const result = parseQuickAdd("call mom tomorrow 5pm", REF);
     expect(result.endAt).toBeNull();
   });
+
+  describe("timeZone", () => {
+    // 2026-08-29T02:30:00Z is already the 29th in UTC, but still the
+    // evening of the 28th in America/Chicago (UTC-5 in August) -- the exact
+    // mismatch that sent a "today at 9:55pm" task to the wrong day when a
+    // Server Action (running in the server's own zone, UTC on Vercel)
+    // resolved "today" against that zone instead of the viewer's.
+    const REF_NEAR_MIDNIGHT_UTC = new Date("2026-08-29T02:30:00Z");
+
+    it("resolves 'today' against the given IANA zone, not the process's own", () => {
+      const result = parseQuickAdd("Be Awesome today at 9:55pm", REF_NEAR_MIDNIGHT_UTC, "America/Chicago");
+      expect(result.title).toBe("Be Awesome");
+      // 9:55pm on the 28th in America/Chicago (UTC-5) is 02:55 UTC on the 29th.
+      expect(result.dueAt?.toISOString()).toBe("2026-08-29T02:55:00.000Z");
+    });
+
+    it("resolves the same phrase against a different zone to a different instant", () => {
+      // Same reference instant and text, but a zone 19 hours further east --
+      // proves the offset is actually driving the result, not being ignored.
+      const result = parseQuickAdd("today at 9:55pm", REF_NEAR_MIDNIGHT_UTC, "Pacific/Kiritimati");
+      expect(result.dueAt?.toISOString()).toBe("2026-08-29T07:55:00.000Z");
+    });
+  });
 });
