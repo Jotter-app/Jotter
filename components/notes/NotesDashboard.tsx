@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { Folder, Search } from "lucide-react";
+import { FilePlus, Folder, FolderPlus, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { NoteCard, type NoteCardData } from "@/components/notes/NoteCard";
+import { createNote } from "@/lib/actions/notes";
+import { createFolder } from "@/lib/actions/folders";
 
 export interface NoteGroup {
   id: string | null;
@@ -20,6 +24,7 @@ export function NotesDashboard({
   groups,
   hasAnyNotes,
   emptyMessage,
+  activeFolderId,
 }: {
   groups: NoteGroup[];
   /** Whether the account has any notes at all -- distinct from this
@@ -30,6 +35,9 @@ export function NotesDashboard({
    * notes but this view has none -- contextual to what's being viewed
    * (a folder, "Starred"), computed by the page. */
   emptyMessage: string;
+  /** The folder currently selected in the sidebar (via ?folder=), or null
+   * on "All notes" / "Starred" -- where "Add note"/"Add folder" create. */
+  activeFolderId: string | null;
 }) {
   const [query, setQuery] = useState("");
 
@@ -55,14 +63,20 @@ export function NotesDashboard({
 
   return (
     <div className="flex flex-1 flex-col gap-5 overflow-auto p-6">
-      <div className="relative">
-        <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search notes…"
-          className="pl-9"
-        />
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search notes…"
+            className="pl-9"
+          />
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <AddNoteButton folderId={activeFolderId} />
+          <AddFolderButton parentFolderId={activeFolderId} />
+        </div>
       </div>
 
       {!hasAnyNotes && (
@@ -110,5 +124,70 @@ export function NotesDashboard({
         </div>
       ))}
     </div>
+  );
+}
+
+// createNote() redirects on success (same shape NotesTree's own "+ note"
+// row and QuickNoteLinks already use) so there's nothing to await here --
+// startTransition just keeps the button from double-firing mid-navigation.
+function AddNoteButton({ folderId }: { folderId: string | null }) {
+  const [isPending, startTransition] = useTransition();
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={isPending}
+      onClick={() => startTransition(() => createNote(folderId))}
+    >
+      <FilePlus className="size-3.5" />
+      Add note
+    </Button>
+  );
+}
+
+function AddFolderButton({ parentFolderId }: { parentFolderId: string | null }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function handleCreate() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    startTransition(async () => {
+      await createFolder(trimmed, parentFolderId);
+      setName("");
+      setOpen(false);
+    });
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger render={<Button type="button" variant="outline" size="sm" />}>
+        <FolderPlus className="size-3.5" />
+        Add folder
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-2">
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleCreate();
+          }}
+        >
+          <Input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Folder name"
+            className="h-8"
+          />
+          <Button type="submit" size="sm" disabled={isPending}>
+            Create
+          </Button>
+        </form>
+      </PopoverContent>
+    </Popover>
   );
 }
