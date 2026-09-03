@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseQuickAdd } from "@/lib/dates/parseQuickAdd";
 import { extractAndStripTags } from "@/lib/markdown/extractTags";
+import { extractSubtaskParent } from "@/lib/tasks/extractSubtaskParent";
 import { findOrCreateTag } from "@/lib/tags/findOrCreateTag";
 import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
 import { appendTaskCompletionJournalCore } from "@/lib/notes/appendTaskCompletionJournal";
@@ -64,6 +65,58 @@ export async function insertTaskCore(
   return { ok: true, taskId: task.id, error: null };
 }
 
+export interface InsertSubtaskResult {
+  ok: boolean;
+  taskId: string | null;
+  error: string | null;
+}
+
+// One level of nesting only -- a subtask can't itself become a parent.
+// Enforced here (not just as a UI convention) since this is also the path
+// the quick-add ^ParentTitle marker goes through.
+export async function insertSubtaskCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  parentTaskId: string,
+  title: string
+): Promise<InsertSubtaskResult> {
+  const { data: parent } = await supabase
+    .from("tasks")
+    .select("parent_task_id")
+    .eq("id", parentTaskId)
+    .maybeSingle();
+  if (!parent || parent.parent_task_id !== null) {
+    return { ok: false, taskId: null, error: "Can't add a subtask under a subtask." };
+  }
+
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .insert({ user_id: userId, title, parent_task_id: parentTaskId })
+    .select("id")
+    .single();
+  if (error || !task) {
+    return { ok: false, taskId: null, error: error?.message ?? "Could not create subtask." };
+  }
+
+  return { ok: true, taskId: task.id, error: null };
+}
+
+export async function insertSubtask(parentTaskId: string, formData: FormData): Promise<InsertSubtaskResult> {
+  const parsed = z.string().trim().min(1).safeParse(formData.get("title"));
+  if (!parsed.success) {
+    return { ok: false, taskId: null, error: "Enter a title." };
+  }
+
+  const { supabase, userId } = await currentUserId();
+  if (!userId) {
+    return { ok: false, taskId: null, error: "Not signed in." };
+  }
+
+  const result = await insertSubtaskCore(supabase, userId, parentTaskId, parsed.data);
+  if (result.ok) revalidatePath("/tasks");
+  return result;
+}
+
 export async function createTaskFromQuickAdd(
   _prevState: QuickAddFormState,
   formData: FormData
@@ -81,7 +134,17 @@ export async function createTaskFromQuickAdd(
 
   // "#TagName1, #TagName2" anywhere in the text assigns those tags at
   // creation time and is stripped from the saved title.
-  const { title, tags: tagNames } = extractAndStripTags(titleWithTags);
+  const { title: titleWithMarker, tags: tagNames } = extractAndStripTags(titleWithTags);
+  if (!titleWithMarker) {
+    return { error: "Enter a task." };
+  }
+
+  // "^Parent Title" at the end assigns the new task as a subtask of an
+  // existing top-level task -- run last, after dates and tags are already
+  // stripped, so a trailing date/tag never gets swallowed into the
+  // captured parent title (see the subtasks design spec's Quick-Add Syntax
+  // section).
+  const { title, parentTitle } = extractSubtaskParent(titleWithMarker);
   if (!title) {
     return { error: "Enter a task." };
   }
@@ -89,6 +152,30 @@ export async function createTaskFromQuickAdd(
   const { supabase, userId } = await currentUserId();
   if (!userId) {
     return { error: "Not signed in." };
+  }
+
+  if (parentTitle) {
+    const { data: candidates } = await supabase
+      .from("tasks")
+      .select("id, title")
+      .eq("user_id", userId)
+      .is("completed_at", null)
+      .is("parent_task_id", null);
+    // Exact, case-insensitive match in JS rather than a SQL ilike -- avoids
+    // treating literal % / _ in arbitrary task titles as wildcards.
+    const matches = (candidates ?? []).filter((t) => t.title.trim().toLowerCase() === parentTitle.toLowerCase());
+    if (matches.length === 1) {
+      const result = await insertSubtaskCore(supabase, userId, matches[0].id, title);
+      if (!result.ok) {
+        return { error: result.error };
+      }
+      revalidatePath("/tasks");
+      return { error: null };
+    }
+    // Zero or ambiguous matches: fall through and create `title` (marker
+    // already stripped) as an ordinary top-level task instead -- never
+    // blocking submission, same as quick-add's date parsing already does
+    // for text it can't parse.
   }
 
   const result = await insertTaskCore(supabase, userId, { title, dueAt, tagNames });
@@ -100,10 +187,16 @@ export async function createTaskFromQuickAdd(
   return { error: null };
 }
 
-export async function toggleTaskComplete(taskId: string, completed: boolean, dueAt: string | null) {
-  const { supabase, userId } = await currentUserId();
-  if (!userId) return;
-
+// Split out (same seam as insertTaskCore) so the cascade-to-subtasks logic
+// below is testable directly, without currentUserId()'s next/headers
+// dependency.
+export async function toggleTaskCompleteCore(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  taskId: string,
+  completed: boolean,
+  dueAt: string | null
+): Promise<{ touchedNoteIds: string[] }> {
   const updates: { completed_at: string | null; archived_at?: null } = {
     completed_at: completed ? new Date().toISOString() : null,
   };
@@ -119,6 +212,16 @@ export async function toggleTaskComplete(taskId: string, completed: boolean, due
     .select("title")
     .single();
 
+  // Checking off the parent takes its subtasks with it -- checking a task
+  // off reasonably means "done, including whatever's under it." The
+  // reverse never happens: un-completing the parent leaves subtasks as
+  // they were, same "completion is an explicit action" reasoning already
+  // applied to un-completing not undoing journal entries below. Subtasks
+  // never have a due_at, so there's no reminder to sync for them.
+  if (completed) {
+    await supabase.from("tasks").update({ completed_at: new Date().toISOString() }).eq("parent_task_id", taskId).is("completed_at", null);
+  }
+
   // Completing a task cancels its pending reminder (no point being told
   // about something already done); un-completing restores it if the task
   // still has a due date.
@@ -127,10 +230,20 @@ export async function toggleTaskComplete(taskId: string, completed: boolean, due
   // Every linked note gets a timestamped journal line -- a log, not a
   // synced summary, so re-completing after an uncheck appends again rather
   // than deduping.
+  let touchedNoteIds: string[] = [];
   if (completed && updatedTask) {
-    const touchedNoteIds = await appendTaskCompletionJournalCore(supabase, taskId, updatedTask.title);
-    for (const noteId of touchedNoteIds) revalidatePath(`/notes/${noteId}`);
+    touchedNoteIds = await appendTaskCompletionJournalCore(supabase, taskId, updatedTask.title);
   }
+
+  return { touchedNoteIds };
+}
+
+export async function toggleTaskComplete(taskId: string, completed: boolean, dueAt: string | null) {
+  const { supabase, userId } = await currentUserId();
+  if (!userId) return;
+
+  const { touchedNoteIds } = await toggleTaskCompleteCore(supabase, userId, taskId, completed, dueAt);
+  for (const noteId of touchedNoteIds) revalidatePath(`/notes/${noteId}`);
 
   // Reachable from both the Tasks page and a calendar task chip.
   revalidatePath("/tasks");

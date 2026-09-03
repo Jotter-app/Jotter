@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
 import { TagPicker } from "@/components/tags/TagPicker";
 import { LinkedNotesPicker } from "@/components/tasks/LinkedNotesPicker";
+import { SubtaskChecklist } from "@/components/tasks/SubtaskChecklist";
 import { TaskEditForm } from "@/components/tasks/TaskEditForm";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -26,12 +27,14 @@ export function TaskRow({
   assignedTags,
   allNotes,
   linkedNotes,
+  subtasks = [],
 }: {
   task: Task;
   allTags: Tag[];
   assignedTags: Tag[];
   allNotes: NoteOption[];
   linkedNotes: LinkedNoteOption[];
+  subtasks?: Task[];
 }) {
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -45,6 +48,7 @@ export function TaskRow({
   // where the viewer's midnight falls.
   const isOverdue = !completed && dueDate !== null && isPast(dueDate) && !isTodayInTimeZone(dueDate, timeZone);
   const isDueToday = dueDate !== null && isTodayInTimeZone(dueDate, timeZone);
+  const completedSubtaskCount = subtasks.filter((s) => s.completed_at !== null).length;
 
   function handleToggle() {
     startTransition(() => toggleTaskComplete(task.id, !completed, task.due_at));
@@ -77,6 +81,11 @@ export function TaskRow({
         >
           {task.title}
         </button>
+        {subtasks.length > 0 && (
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
+            {completedSubtaskCount}/{subtasks.length}
+          </span>
+        )}
         {task.priority > 0 && (
           <span
             title={priorityLabel(task.priority)}
@@ -109,6 +118,7 @@ export function TaskRow({
       </div>
       <TagPicker taggableId={task.id} taggableType="task" allTags={allTags} assignedTags={assignedTags} />
       <LinkedNotesPicker taskId={task.id} allNotes={allNotes} linkedNotes={linkedNotes} />
+      <SubtaskChecklist parentTaskId={task.id} subtasks={subtasks} />
     </li>
   );
 }
