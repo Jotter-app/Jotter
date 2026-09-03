@@ -17,6 +17,7 @@ import { MonthView } from "@/components/calendar/MonthView";
 import { WeekView } from "@/components/calendar/WeekView";
 import { Button } from "@/components/ui/button";
 import { getDefaultEventCreatesTask } from "@/lib/actions/settings";
+import { getGoogleCalendarConnection } from "@/lib/actions/calendarConnections";
 import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 import { expandRecurringEvent, type VirtualOccurrence } from "@/lib/calendar/expandRecurrence";
 import { dayKey } from "@/lib/calendar/grid";
@@ -58,6 +59,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
     { data: events },
     { data: tasks },
     defaultEventCreatesTask,
+    googleCalendarConnection,
     { data: tags },
     { data: eventTaggables },
     { data: unscheduledTasks },
@@ -76,6 +78,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
       .gte("due_at", rangeStart.toISOString())
       .lte("due_at", rangeEnd.toISOString()),
     getDefaultEventCreatesTask(),
+    getGoogleCalendarConnection(),
     supabase.from("tags").select().order("name"),
     supabase.from("taggables").select("taggable_id, tags(*)").eq("taggable_type", "event"),
     // Drag-to-timebox's drag source -- every not-yet-due, not-completed
@@ -181,6 +184,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           tasksWithDueDate={tasksWithDueDate}
           linkedTasksById={linkedTasksById}
           defaultEventCreatesTask={defaultEventCreatesTask}
+          googleCalendarConnected={googleCalendarConnection?.status === "active"}
           allTags={tags ?? []}
           tagsByEventId={tagsByEventId}
           unscheduledTasks={unscheduledTasks ?? []}
@@ -193,6 +197,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           tasksWithDueDate={tasksWithDueDate}
           linkedTasksById={linkedTasksById}
           defaultEventCreatesTask={defaultEventCreatesTask}
+          googleCalendarConnected={googleCalendarConnection?.status === "active"}
           allTags={tags ?? []}
           tagsByEventId={tagsByEventId}
           unscheduledTasks={unscheduledTasks ?? []}

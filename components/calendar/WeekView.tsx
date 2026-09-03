@@ -25,6 +25,7 @@ export function WeekView({
   tasksWithDueDate,
   linkedTasksById,
   defaultEventCreatesTask,
+  googleCalendarConnected,
   allTags,
   tagsByEventId,
   unscheduledTasks,
@@ -35,6 +36,7 @@ export function WeekView({
   tasksWithDueDate: Task[];
   linkedTasksById?: Map<string, LinkedTask>;
   defaultEventCreatesTask?: boolean;
+  googleCalendarConnected?: boolean;
   allTags?: Tag[];
   tagsByEventId?: Map<string, Tag[]>;
   unscheduledTasks?: UnscheduledTask[];
@@ -79,6 +81,7 @@ export function WeekView({
           onOpenChange={(open) => !open && setAddEventDate(null)}
           defaultDate={addEventDate}
           defaultEventCreatesTask={defaultEventCreatesTask}
+          googleCalendarConnected={googleCalendarConnected}
         />
       )}
     </DndContext>

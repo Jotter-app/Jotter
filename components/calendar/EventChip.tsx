@@ -4,6 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useDraggable } from "@dnd-kit/core";
+import { RefreshCw } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
@@ -65,10 +66,18 @@ export function EventChip({
           />
         }
       >
+        {event.calendar_connection_id && (
+          <RefreshCw className="mr-1 inline size-2.5 shrink-0 align-[1px]" aria-label="Synced with Google Calendar" />
+        )}
         {event.title}
       </PopoverTrigger>
       <PopoverContent className="w-56">
-        <p className="text-sm font-medium">{event.title}</p>
+        <p className="flex items-center gap-1.5 text-sm font-medium">
+          {event.title}
+          {event.calendar_connection_id && (
+            <RefreshCw className="size-3 shrink-0 text-muted-foreground" aria-label="Synced with Google Calendar" />
+          )}
+        </p>
         <p className="text-xs text-muted-foreground">
           {formatRelativeDays(new Date(event.start_at), timeZone)} &middot;{" "}
           {formatInTimeZone(new Date(event.start_at), timeZone, "MMM d, h:mm a")} &ndash;{" "}
