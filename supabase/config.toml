@@ -383,6 +383,12 @@ deno_version = 2
 [functions.send-reminders]
 verify_jwt = false
 
+# Same rationale as send-reminders above -- called by pg_cron and by the
+# app's own "Sync now" server action (a trusted server-to-server call), never
+# directly by a browser.
+[functions.sync-calendars]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

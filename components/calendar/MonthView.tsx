@@ -27,6 +27,7 @@ export function MonthView({
   tasksWithDueDate,
   linkedTasksById,
   defaultEventCreatesTask,
+  googleCalendarConnected,
   allTags,
   tagsByEventId,
   unscheduledTasks,
@@ -37,6 +38,7 @@ export function MonthView({
   tasksWithDueDate: Task[];
   linkedTasksById?: Map<string, LinkedTask>;
   defaultEventCreatesTask?: boolean;
+  googleCalendarConnected?: boolean;
   allTags?: Tag[];
   tagsByEventId?: Map<string, Tag[]>;
   unscheduledTasks?: UnscheduledTask[];
@@ -81,6 +83,7 @@ export function MonthView({
           onOpenChange={(open) => !open && setAddEventDate(null)}
           defaultDate={addEventDate}
           defaultEventCreatesTask={defaultEventCreatesTask}
+          googleCalendarConnected={googleCalendarConnected}
         />
       )}
     </DndContext>

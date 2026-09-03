@@ -10,6 +10,7 @@ import { insertNoteCore } from "@/lib/actions/notes";
 import { syncTaskReminder } from "@/lib/reminders/syncTaskReminder";
 import { syncEventDebriefReminder } from "@/lib/reminders/syncEventDebriefReminder";
 import { DEFAULT_EVENT_DURATION_MS } from "@/lib/jotter/duration";
+import { pushEventCreate, pushEventDelete, pushEventUpdate } from "@/lib/calendar-sync/push";
 import type { Database } from "@/lib/supabase/database.types";
 
 const eventSchema = z.object({
@@ -19,6 +20,7 @@ const eventSchema = z.object({
   calendarColor: z.string().default("#7a8a5e"),
   alsoCreateTask: z.string().optional(),
   repeats: z.enum(["none", "daily", "weekly", "monthly"]).default("none"),
+  syncToGoogle: z.string().optional(),
 });
 
 // Fixed, non-editable rules -- see the Tier 5 spec's Non-Goals for why
@@ -41,6 +43,7 @@ export interface InsertEventParams {
   calendarColor?: string;
   alsoCreateTask?: boolean;
   recurrenceRule?: string;
+  syncEnabled?: boolean;
 }
 
 export interface InsertEventResult {
@@ -54,7 +57,15 @@ export interface InsertEventResult {
 export async function insertEventCore(
   supabase: SupabaseClient<Database>,
   userId: string,
-  { title, startAt, endAt, calendarColor = "#7a8a5e", alsoCreateTask = false, recurrenceRule }: InsertEventParams
+  {
+    title,
+    startAt,
+    endAt,
+    calendarColor = "#7a8a5e",
+    alsoCreateTask = false,
+    recurrenceRule,
+    syncEnabled = false,
+  }: InsertEventParams
 ): Promise<InsertEventResult> {
   // A companion-task creation failure should never block the event itself
   // from being created -- same never-block-submission principle used
@@ -79,6 +90,7 @@ export async function insertEventCore(
       calendar_color: calendarColor,
       linked_task_id: linkedTaskId,
       recurrence_rule: recurrenceRule ?? null,
+      sync_enabled: syncEnabled,
     })
     .select("id")
     .single();
@@ -92,6 +104,21 @@ export async function insertEventCore(
   // `where series_id = X` query, this master row included.
   if (recurrenceRule) {
     await supabase.from("events").update({ series_id: event.id }).eq("id", event.id);
+  }
+
+  // Push-on-write: best-effort, never blocks event creation from
+  // succeeding. externalId can come back null if the Google call itself
+  // failed -- calendar_connection_id is still stamped in that case so the
+  // next pull-cron tick finds this row (sync_enabled + external_id is
+  // null) and retries the push.
+  if (syncEnabled) {
+    const pushed = await pushEventCreate(supabase, userId, { title, startAt, endAt });
+    if (pushed) {
+      await supabase
+        .from("events")
+        .update({ calendar_connection_id: pushed.connectionId, external_id: pushed.externalId })
+        .eq("id", event.id);
+    }
   }
 
   return { ok: true, eventId: event.id, error: null };
@@ -108,6 +135,7 @@ export async function createEvent(
     calendarColor: formData.get("calendarColor") || undefined,
     alsoCreateTask: formData.get("alsoCreateTask") || undefined,
     repeats: formData.get("repeats") || undefined,
+    syncToGoogle: formData.get("syncToGoogle") || undefined,
   });
   if (!parsed.success) {
     return { error: "Title, start, and end are required." };
@@ -131,6 +159,7 @@ export async function createEvent(
     // FormData entirely when unchecked.
     alsoCreateTask: parsed.data.alsoCreateTask === "on",
     recurrenceRule: RECURRENCE_RULES[parsed.data.repeats],
+    syncEnabled: parsed.data.syncToGoogle === "on",
   });
   if (!result.ok) return { error: result.error };
 
@@ -153,11 +182,19 @@ export async function rescheduleEventCore(
 ) {
   const { data: before } = await supabase
     .from("events")
-    .select("start_at, linked_task_id, linked_note_id")
+    .select("title, start_at, linked_task_id, linked_note_id, sync_enabled, calendar_connection_id, external_id")
     .eq("id", eventId)
     .single();
 
   await supabase.from("events").update({ start_at: newStartAt, end_at: newEndAt }).eq("id", eventId);
+
+  if (before?.sync_enabled && before.calendar_connection_id && before.external_id) {
+    await pushEventUpdate(supabase, before.calendar_connection_id, before.external_id, {
+      title: before.title,
+      startAt: newStartAt,
+      endAt: newEndAt,
+    });
+  }
 
   // Keep the linked task's due date (and therefore its reminder) moving
   // with the event -- same delta the event itself just shifted by.
@@ -197,15 +234,21 @@ export async function deleteEventCore(
   eventId: string,
   deleteLinkedTask: boolean
 ) {
-  if (deleteLinkedTask) {
-    const { data: event } = await supabase
-      .from("events")
-      .select("linked_task_id")
-      .eq("id", eventId)
-      .single();
-    if (event?.linked_task_id) {
-      await supabase.from("tasks").delete().eq("id", event.linked_task_id);
-    }
+  const { data: event } = await supabase
+    .from("events")
+    .select("linked_task_id, sync_enabled, calendar_connection_id, external_id")
+    .eq("id", eventId)
+    .single();
+
+  if (deleteLinkedTask && event?.linked_task_id) {
+    await supabase.from("tasks").delete().eq("id", event.linked_task_id);
+  }
+
+  // Pushed before the local delete so a failed remote call is still visible
+  // (the connection's status/last_error) without having already lost the
+  // row's external_id/calendar_connection_id.
+  if (event?.sync_enabled && event.calendar_connection_id && event.external_id) {
+    await pushEventDelete(supabase, event.calendar_connection_id, event.external_id);
   }
 
   await supabase.from("events").delete().eq("id", eventId);

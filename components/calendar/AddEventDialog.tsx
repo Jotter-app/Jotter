@@ -24,11 +24,13 @@ export function AddEventDialog({
   onOpenChange,
   defaultDate,
   defaultEventCreatesTask = false,
+  googleCalendarConnected = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultDate: Date;
   defaultEventCreatesTask?: boolean;
+  googleCalendarConnected?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(createEvent, initialState);
 
@@ -101,6 +103,12 @@ export function AddEventDialog({
               <Checkbox id="event-also-task" name="alsoCreateTask" defaultChecked={defaultEventCreatesTask} />
               <Label htmlFor="event-also-task">Also add as a task</Label>
             </div>
+            {googleCalendarConnected && (
+              <div className="flex items-center gap-2">
+                <Checkbox id="event-sync-google" name="syncToGoogle" defaultChecked={false} />
+                <Label htmlFor="event-sync-google">Sync to Google Calendar</Label>
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label htmlFor="event-repeats">Repeats</Label>
               <select

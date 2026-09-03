@@ -34,47 +34,111 @@ export type Database = {
   }
   public: {
     Tables: {
+      calendar_connections: {
+        Row: {
+          access_token_encrypted: string
+          created_at: string
+          google_calendar_id: string
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          provider: string
+          refresh_token_encrypted: string
+          status: string
+          sync_token: string | null
+          token_expires_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token_encrypted: string
+          created_at?: string
+          google_calendar_id?: string
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          provider?: string
+          refresh_token_encrypted: string
+          status?: string
+          sync_token?: string | null
+          token_expires_at: string
+          user_id: string
+        }
+        Update: {
+          access_token_encrypted?: string
+          created_at?: string
+          google_calendar_id?: string
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          provider?: string
+          refresh_token_encrypted?: string
+          status?: string
+          sync_token?: string | null
+          token_expires_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           calendar_color: string
+          calendar_connection_id: string | null
           created_at: string
           end_at: string
+          external_id: string | null
           id: string
           linked_note_id: string | null
           linked_task_id: string | null
           recurrence_rule: string | null
           series_id: string | null
           start_at: string
+          sync_enabled: boolean
           title: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           calendar_color?: string
+          calendar_connection_id?: string | null
           created_at?: string
           end_at: string
+          external_id?: string | null
           id?: string
           linked_note_id?: string | null
           linked_task_id?: string | null
           recurrence_rule?: string | null
           series_id?: string | null
           start_at: string
+          sync_enabled?: boolean
           title: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           calendar_color?: string
+          calendar_connection_id?: string | null
           created_at?: string
           end_at?: string
+          external_id?: string | null
           id?: string
           linked_note_id?: string | null
           linked_task_id?: string | null
           recurrence_rule?: string | null
           series_id?: string | null
           start_at?: string
+          sync_enabled?: boolean
           title?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "events_calendar_connection_id_fkey"
+            columns: ["calendar_connection_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "events_linked_note_id_fkey"
             columns: ["linked_note_id"]
