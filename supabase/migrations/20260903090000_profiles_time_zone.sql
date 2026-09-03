@@ -1,0 +1,12 @@
+-- The viewer's IANA timezone has only ever lived in a client-side cookie
+-- (lib/dates/timezone.ts's TZ_COOKIE_NAME, written by TimeZoneProvider) --
+-- fine for every existing use, which all happen inside a request that can
+-- read that cookie. sync-calendars is a background cron job with no
+-- request/cookie to read, and had been hardcoding UTC for all-day-event
+-- date math as a result -- wrong for any user west of UTC, whose all-day
+-- events would land one calendar day early once converted back to their
+-- own timezone for display. Persisting it here (nullable: unset until the
+-- user's browser has run TimeZoneProvider's detection at least once, same
+-- "no cookie yet" edge case getUserTimeZone already falls back to
+-- DEFAULT_TIME_ZONE for) gives the edge function a real value to read.
+alter table profiles add column time_zone text;

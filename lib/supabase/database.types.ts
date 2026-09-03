@@ -279,18 +279,21 @@ export type Database = {
           created_at: string
           default_event_creates_task: boolean
           hide_note_only_tags_from_tasks: boolean
+          time_zone: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           default_event_creates_task?: boolean
           hide_note_only_tags_from_tasks?: boolean
+          time_zone?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           default_event_creates_task?: boolean
           hide_note_only_tags_from_tasks?: boolean
+          time_zone?: string | null
           user_id?: string
         }
         Relationships: []
