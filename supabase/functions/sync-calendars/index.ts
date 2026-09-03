@@ -161,20 +161,32 @@ async function pullChanges(
   connection: CalendarConnection,
   accessToken: string
 ): Promise<string | null> {
-  let listResult;
-  try {
-    listResult = await listGoogleEvents(accessToken, connection.google_calendar_id, {
-      syncToken: connection.sync_token ?? undefined,
-    });
-  } catch (err) {
-    if (!(err instanceof SyncTokenInvalidError)) throw err;
-    // Google invalidated the old cursor -- fall back to a bounded full
-    // resync rather than treating this as a hard failure.
+  const boundedFullSyncWindow = () => {
     const now = Date.now();
-    listResult = await listGoogleEvents(accessToken, connection.google_calendar_id, {
+    return {
       timeMin: new Date(now - FULL_SYNC_WINDOW_PAST_MS).toISOString(),
       timeMax: new Date(now + FULL_SYNC_WINDOW_FUTURE_MS).toISOString(),
-    });
+    };
+  };
+
+  let listResult;
+  if (connection.sync_token) {
+    try {
+      listResult = await listGoogleEvents(accessToken, connection.google_calendar_id, { syncToken: connection.sync_token });
+    } catch (err) {
+      if (!(err instanceof SyncTokenInvalidError)) throw err;
+      // Google invalidated the old cursor -- fall back to a bounded full
+      // resync rather than treating this as a hard failure.
+      listResult = await listGoogleEvents(accessToken, connection.google_calendar_id, boundedFullSyncWindow());
+    }
+  } else {
+    // No sync_token yet (first sync ever). Omitting timeMin/timeMax
+    // entirely here -- rather than only setting them in the catch branch
+    // above -- would ask Google for *every event on the calendar since it
+    // was created*, unbounded; found this the hard way testing against a
+    // real account, where it hung for minutes fetching years of expanded
+    // recurring-event instances instead of erroring.
+    listResult = await listGoogleEvents(accessToken, connection.google_calendar_id, boundedFullSyncWindow());
   }
 
   for (const raw of listResult.events) {
