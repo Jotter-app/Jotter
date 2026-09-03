@@ -32,12 +32,13 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? D
 const TOKEN_ENCRYPTION_KEY = Deno.env.get("CALENDAR_TOKEN_ENCRYPTION_KEY")!;
 
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
-// No per-request user timezone is available in a background cron job (the
-// app's own timezone comes from a cookie TimeZoneProvider writes
-// client-side) -- all-day events fall back to UTC. This compounds the
-// existing all-day-mapping approximation (per the design spec) rather than
-// introducing a new one.
-const ALL_DAY_TIME_ZONE = "UTC";
+// Fallback only for a user whose browser has never run TimeZoneProvider's
+// detection yet (profiles.time_zone still null) -- same "no cookie yet"
+// edge case getUserTimeZone() falls back to DEFAULT_TIME_ZONE for. In
+// practice this is essentially unreachable: connecting Google Calendar at
+// all requires having loaded the app in a browser first, which is exactly
+// what populates profiles.time_zone.
+const DEFAULT_TIME_ZONE = "UTC";
 const FULL_SYNC_WINDOW_PAST_MS = 90 * 24 * 60 * 60 * 1000; // ~3 months
 const FULL_SYNC_WINDOW_FUTURE_MS = 365 * 24 * 60 * 60 * 1000; // 12 months
 
@@ -84,8 +85,15 @@ async function processConnection(
   try {
     const accessToken = await getValidAccessToken(supabase, connection);
 
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("time_zone")
+      .eq("user_id", connection.user_id)
+      .maybeSingle();
+    const timeZone: string = profile?.time_zone ?? DEFAULT_TIME_ZONE;
+
     await retryFailedPushes(supabase, connection, accessToken);
-    const syncToken = await pullChanges(supabase, connection, accessToken);
+    const syncToken = await pullChanges(supabase, connection, accessToken, timeZone);
 
     await supabase
       .from("calendar_connections")
@@ -159,7 +167,8 @@ async function pullChanges(
   // deno-lint-ignore no-explicit-any
   supabase: any,
   connection: CalendarConnection,
-  accessToken: string
+  accessToken: string,
+  timeZone: string
 ): Promise<string | null> {
   const boundedFullSyncWindow = () => {
     const now = Date.now();
@@ -190,7 +199,7 @@ async function pullChanges(
   }
 
   for (const raw of listResult.events) {
-    await applyGoogleEvent(supabase, connection, accessToken, raw);
+    await applyGoogleEvent(supabase, connection, accessToken, raw, timeZone);
   }
 
   return listResult.nextSyncToken;
@@ -201,9 +210,10 @@ async function applyGoogleEvent(
   supabase: any,
   connection: CalendarConnection,
   accessToken: string,
-  raw: RawGoogleEvent
+  raw: RawGoogleEvent,
+  timeZone: string
 ) {
-  const mapped = mapGoogleEventToJotterEvent(raw, ALL_DAY_TIME_ZONE);
+  const mapped = mapGoogleEventToJotterEvent(raw, timeZone);
 
   const { data: existing } = await supabase
     .from("events")

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { TZ_COOKIE_NAME } from "@/lib/dates/timezone";
+import { updateUserTimeZone } from "@/lib/actions/timezone";
 
 const TimeZoneContext = createContext<string | null>(null);
 
@@ -38,6 +39,10 @@ export function TimeZoneProvider({ timeZone, children }: { timeZone: string; chi
     if (!detected || detected === timeZone) return;
     attempted.current = true;
     document.cookie = `${TZ_COOKIE_NAME}=${encodeURIComponent(detected)}; path=/; max-age=31536000; samesite=lax`;
+    // Fire-and-forget -- persisted for code with no cookie to read (the
+    // sync-calendars background job); every in-request read still goes
+    // through the cookie above, unaffected by this write's timing.
+    void updateUserTimeZone(detected);
     // Re-runs Server Components on the current route with the now-correct
     // cookie present, without a full page reload -- the one-time
     // correction a first-ever visit (or a stale cookie from travel) needs.
