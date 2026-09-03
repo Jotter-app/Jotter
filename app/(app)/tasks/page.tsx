@@ -21,15 +21,31 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     { data: taggables },
     { data: allNotes },
     { data: taskNoteLinks },
+    { data: subtasks },
     hideNoteOnlyTags,
   ] = await Promise.all([
-    supabase.from("tasks").select().order("due_at", { ascending: true, nullsFirst: false }),
+    // Top-level only -- subtasks render nested under their parent (below),
+    // not as their own independent entries in the due-date-grouped sections.
+    supabase
+      .from("tasks")
+      .select()
+      .is("parent_task_id", null)
+      .order("due_at", { ascending: true, nullsFirst: false }),
     supabase.from("tags").select().order("name"),
     supabase.from("taggables").select("tag_id, taggable_id, tags(*)").eq("taggable_type", "task"),
     supabase.from("notes").select("id, title").order("title"),
     supabase.from("task_note_links").select("task_id, notes(id, title, body_markdown, updated_at)"),
+    supabase.from("tasks").select().not("parent_task_id", "is", null),
     getHideNoteOnlyTags(),
   ]);
+
+  const subtasksByTaskId = new Map<string, NonNullable<typeof subtasks>>();
+  for (const subtask of subtasks ?? []) {
+    if (!subtask.parent_task_id) continue;
+    const existing = subtasksByTaskId.get(subtask.parent_task_id) ?? [];
+    existing.push(subtask);
+    subtasksByTaskId.set(subtask.parent_task_id, existing);
+  }
 
   const allTags = filterNoteOnlyTags(tags ?? [], taggables ?? [], hideNoteOnlyTags);
 
@@ -111,6 +127,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
                     assignedTags={tagsByTaskId.get(task.id) ?? []}
                     allNotes={allNotes ?? []}
                     linkedNotes={linkedNotesByTaskId.get(task.id) ?? []}
+                    subtasks={subtasksByTaskId.get(task.id) ?? []}
                   />
                 ))}
               </ul>
@@ -153,6 +170,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
                 assignedTags={tagsByTaskId.get(task.id) ?? []}
                 allNotes={allNotes ?? []}
                 linkedNotes={linkedNotesByTaskId.get(task.id) ?? []}
+                subtasks={subtasksByTaskId.get(task.id) ?? []}
               />
             ))}
           </ul>
