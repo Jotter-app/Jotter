@@ -7,7 +7,11 @@ import { createTaskFromQuickAdd, type QuickAddFormState } from "@/lib/actions/ta
 
 const initialState: QuickAddFormState = { error: null };
 
-export function QuickAddBar() {
+// projectId, when given, is carried as a hidden field so a task created
+// from a project's own page is automatically filed into it -- the global
+// Tasks page never passes this, so createTaskFromQuickAdd sees no
+// projectId there and files new tasks unfiled as it always has.
+export function QuickAddBar({ projectId }: { projectId?: string } = {}) {
   const [state, formAction, pending] = useActionState(createTaskFromQuickAdd, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -21,6 +25,7 @@ export function QuickAddBar() {
   return (
     <form ref={formRef} action={formAction} className="flex flex-col gap-2">
       <div className="flex gap-2">
+        {projectId && <input type="hidden" name="projectId" value={projectId} />}
         <Input
           name="text"
           placeholder='Add a task... try "call mom tomorrow 5pm #family"'

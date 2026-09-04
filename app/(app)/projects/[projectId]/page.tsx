@@ -1,19 +1,29 @@
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { QuickAddBar } from "@/components/tasks/QuickAddBar";
 import { TaskRow } from "@/components/tasks/TaskRow";
 import { ArchivedTaskRow } from "@/components/tasks/ArchivedTaskRow";
 import { ArchiveCompletedButton } from "@/components/tasks/ArchiveCompletedButton";
-import { TagFilterRow } from "@/components/tags/TagFilterRow";
+import { ProjectHeader } from "@/components/projects/ProjectHeader";
+import { ProjectDeleteDialog } from "@/components/projects/ProjectDeleteDialog";
 import { groupTasksByDueDate } from "@/lib/tasks/groupTasksByDueDate";
 import { getHideNoteOnlyTags } from "@/lib/actions/settings";
 import { filterNoteOnlyTags } from "@/lib/tags/filterNoteOnlyTags";
 import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 
-export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
-  const { tag: tagFilter } = await searchParams;
+// Near-duplicate of app/(app)/tasks/page.tsx's rendering, scoped to one
+// project's tasks -- same due-date grouping, same TaskRow, same Completed/
+// Archived accordions. This reuse (not a new UI) is what keeps Projects
+// tractable without Sections: the project page is the Tasks page's own
+// rendering logic pointed at a filtered query.
+export default async function ProjectPage({ params }: PageProps<"/projects/[projectId]">) {
+  const { projectId } = await params;
   const supabase = await createClient();
   const timeZone = await getUserTimeZone();
+
+  const { data: project } = await supabase.from("projects").select().eq("id", projectId).maybeSingle();
+  if (!project) notFound();
 
   const [
     { data: tasks },
@@ -25,11 +35,10 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     { data: allProjects },
     hideNoteOnlyTags,
   ] = await Promise.all([
-    // Top-level only -- subtasks render nested under their parent (below),
-    // not as their own independent entries in the due-date-grouped sections.
     supabase
       .from("tasks")
       .select()
+      .eq("project_id", projectId)
       .is("parent_task_id", null)
       .order("due_at", { ascending: true, nullsFirst: false }),
     supabase.from("tags").select().order("name"),
@@ -48,8 +57,6 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     existing.push(subtask);
     subtasksByTaskId.set(subtask.parent_task_id, existing);
   }
-
-  const projectsById = new Map((allProjects ?? []).map((p) => [p.id, p]));
 
   const allTags = filterNoteOnlyTags(tags ?? [], taggables ?? [], hideNoteOnlyTags);
 
@@ -72,14 +79,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     linkedNotesByTaskId.set(row.task_id, existing);
   }
 
-  let rows = tasks ?? [];
-  if (typeof tagFilter === "string") {
-    const taskIdsWithTag = new Set(
-      (taggables ?? []).filter((r) => r.tag_id === tagFilter).map((r) => r.taggable_id)
-    );
-    rows = rows.filter((t) => taskIdsWithTag.has(t.id));
-  }
-
+  const rows = tasks ?? [];
   const active = rows.filter((t) => t.completed_at === null);
   const completed = rows.filter((t) => t.completed_at !== null && t.archived_at === null);
   const archived = rows.filter((t) => t.archived_at !== null);
@@ -89,9 +89,6 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
     timeZone
   );
 
-  // A restrained accent per section: overdue earns a deeper accent shade
-  // for urgency, today earns the app's primary accent color, the rest
-  // stay neutral.
   const sections = [
     { title: "Overdue", tasks: overdue, dot: "bg-accent-700", ring: "ring-accent-700/20" },
     { title: "Today", tasks: today, dot: "bg-primary", ring: "ring-primary/20" },
@@ -103,11 +100,18 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6">
-      <h1 className="font-heading text-2xl tracking-tight">Tasks</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-col gap-1">
+          <Link href="/projects" className="text-xs text-muted-foreground hover:text-foreground">
+            &larr; Projects
+          </Link>
+          <ProjectHeader projectId={project.id} name={project.name} />
+        </div>
+        <ProjectDeleteDialog projectId={project.id} projectName={project.name} hasTasks={rows.length > 0} />
+      </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <QuickAddBar />
-        <TagFilterRow allTags={allTags} activeTagId={typeof tagFilter === "string" ? tagFilter : undefined} />
+        <QuickAddBar projectId={project.id} />
       </div>
 
       {sections.map(
@@ -133,7 +137,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
                     linkedNotes={linkedNotesByTaskId.get(task.id) ?? []}
                     subtasks={subtasksByTaskId.get(task.id) ?? []}
                     allProjects={allProjects ?? []}
-                    project={task.project_id ? (projectsById.get(task.project_id) ?? null) : null}
+                    project={project}
                   />
                 ))}
               </ul>
@@ -144,17 +148,14 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
       {active.length === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed p-10 text-center">
           <span className="flex size-14 items-center justify-center rounded-full bg-accent-100 text-2xl">✓</span>
-          <p className="text-sm text-muted-foreground">No tasks yet -- add one above.</p>
+          <p className="text-sm text-muted-foreground">No tasks in this project yet -- add one above.</p>
         </div>
       )}
 
       {laterCount > 0 && (
-        <Link
-          href="/calendar"
-          className="rounded-2xl border border-dashed p-3 text-center text-sm text-muted-foreground hover:text-foreground"
-        >
-          {laterCount} more {laterCount === 1 ? "task" : "tasks"} &middot; view on calendar
-        </Link>
+        <p className="rounded-2xl border border-dashed p-3 text-center text-sm text-muted-foreground">
+          {laterCount} more {laterCount === 1 ? "task" : "tasks"} further out
+        </p>
       )}
 
       {completed.length > 0 && (
@@ -178,7 +179,7 @@ export default async function TasksPage({ searchParams }: PageProps<"/tasks">) {
                 linkedNotes={linkedNotesByTaskId.get(task.id) ?? []}
                 subtasks={subtasksByTaskId.get(task.id) ?? []}
                 allProjects={allProjects ?? []}
-                project={task.project_id ? (projectsById.get(task.project_id) ?? null) : null}
+                project={project}
               />
             ))}
           </ul>

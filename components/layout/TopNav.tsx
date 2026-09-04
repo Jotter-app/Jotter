@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListTodo, NotebookText } from "lucide-react";
+import { CalendarDays, FolderKanban, ListTodo, NotebookText } from "lucide-react";
 
 const NAV_ITEMS = [
   { href: "/tasks", label: "Tasks", icon: ListTodo },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/notes", label: "Notes", icon: NotebookText },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ];

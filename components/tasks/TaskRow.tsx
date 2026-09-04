@@ -13,11 +13,14 @@ import { ConfirmDeleteButton } from "@/components/shared/ConfirmDeleteButton";
 import { TagPicker } from "@/components/tags/TagPicker";
 import { LinkedNotesPicker } from "@/components/tasks/LinkedNotesPicker";
 import { SubtaskChecklist } from "@/components/tasks/SubtaskChecklist";
+import { ProjectPicker } from "@/components/tasks/ProjectPicker";
 import { TaskEditForm } from "@/components/tasks/TaskEditForm";
+import { projectAccentClass } from "@/lib/projects/projectAccent";
 import type { Database } from "@/lib/supabase/database.types";
 
 type Task = Database["public"]["Tables"]["tasks"]["Row"];
 type Tag = Database["public"]["Tables"]["tags"]["Row"];
+type Project = Database["public"]["Tables"]["projects"]["Row"];
 type NoteOption = { id: string; title: string };
 type LinkedNoteOption = NoteOption & { body_markdown: string; updated_at: string };
 
@@ -28,6 +31,8 @@ export function TaskRow({
   allNotes,
   linkedNotes,
   subtasks = [],
+  allProjects = [],
+  project = null,
 }: {
   task: Task;
   allTags: Tag[];
@@ -35,6 +40,8 @@ export function TaskRow({
   allNotes: NoteOption[];
   linkedNotes: LinkedNoteOption[];
   subtasks?: Task[];
+  allProjects?: Project[];
+  project?: Project | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
@@ -86,6 +93,11 @@ export function TaskRow({
             {completedSubtaskCount}/{subtasks.length}
           </span>
         )}
+        {project && (
+          <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-xs ${projectAccentClass(project.id)}`}>
+            {project.name}
+          </span>
+        )}
         {task.priority > 0 && (
           <span
             title={priorityLabel(task.priority)}
@@ -118,6 +130,7 @@ export function TaskRow({
       </div>
       <TagPicker taggableId={task.id} taggableType="task" allTags={allTags} assignedTags={assignedTags} />
       <LinkedNotesPicker taskId={task.id} allNotes={allNotes} linkedNotes={linkedNotes} />
+      <ProjectPicker taskId={task.id} allProjects={allProjects} currentProject={project} />
       <SubtaskChecklist parentTaskId={task.id} subtasks={subtasks} />
     </li>
   );
