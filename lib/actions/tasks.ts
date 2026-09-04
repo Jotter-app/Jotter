@@ -21,6 +21,7 @@ export interface InsertTaskParams {
   title: string;
   dueAt: Date | null;
   tagNames: string[];
+  projectId?: string | null;
 }
 
 export interface InsertTaskResult {
@@ -35,7 +36,7 @@ export interface InsertTaskResult {
 export async function insertTaskCore(
   supabase: SupabaseClient<Database>,
   userId: string,
-  { title, dueAt, tagNames }: InsertTaskParams
+  { title, dueAt, tagNames, projectId = null }: InsertTaskParams
 ): Promise<InsertTaskResult> {
   const { data: task, error } = await supabase
     .from("tasks")
@@ -43,6 +44,7 @@ export async function insertTaskCore(
       user_id: userId,
       title,
       due_at: dueAt ? dueAt.toISOString() : null,
+      project_id: projectId,
     })
     .select("id")
     .single();
@@ -178,12 +180,22 @@ export async function createTaskFromQuickAdd(
     // for text it can't parse.
   }
 
-  const result = await insertTaskCore(supabase, userId, { title, dueAt, tagNames });
+  // Set only by a project page's own quick-add bar (a hidden field) -- the
+  // global quick-add never sends this, so `projectId` stays null there.
+  const projectId = formData.get("projectId");
+
+  const result = await insertTaskCore(supabase, userId, {
+    title,
+    dueAt,
+    tagNames,
+    projectId: typeof projectId === "string" && projectId ? projectId : null,
+  });
   if (!result.ok) {
     return { error: result.error };
   }
 
   revalidatePath("/tasks");
+  revalidatePath("/projects");
   return { error: null };
 }
 

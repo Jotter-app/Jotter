@@ -298,6 +298,27 @@ export type Database = {
         }
         Relationships: []
       }
+      projects: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth_key: string
@@ -481,6 +502,7 @@ export type Database = {
           notes: string
           parent_task_id: string | null
           priority: number
+          project_id: string | null
           recurrence_rule: string | null
           title: string
           updated_at: string
@@ -495,6 +517,7 @@ export type Database = {
           notes?: string
           parent_task_id?: string | null
           priority?: number
+          project_id?: string | null
           recurrence_rule?: string | null
           title: string
           updated_at?: string
@@ -509,6 +532,7 @@ export type Database = {
           notes?: string
           parent_task_id?: string | null
           priority?: number
+          project_id?: string | null
           recurrence_rule?: string | null
           title?: string
           updated_at?: string
@@ -520,6 +544,13 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

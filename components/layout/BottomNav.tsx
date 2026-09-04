@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListTodo, NotebookText } from "lucide-react";
+import { CalendarDays, FolderKanban, ListTodo, NotebookText } from "lucide-react";
 
-// Same three pillars/routes/active-path logic as TopNav (components/layout/TopNav.tsx)
-// -- this replaces it below the breakpoint where TopNav hides, so the two
-// never show at once, but share exactly one definition of "which tab is active."
+// Same routes/active-path logic as TopNav (components/layout/TopNav.tsx) --
+// this replaces it below the breakpoint where TopNav hides, so the two
+// never show at once, but each holds its own copy of this list (no shared
+// constant module) -- keep both in sync by hand when adding a route.
 const NAV_ITEMS = [
   { href: "/tasks", label: "Tasks", icon: ListTodo },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/notes", label: "Notes", icon: NotebookText },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
 ];
