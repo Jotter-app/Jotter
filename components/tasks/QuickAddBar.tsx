@@ -10,8 +10,10 @@ const initialState: QuickAddFormState = { error: null };
 // projectId, when given, is carried as a hidden field so a task created
 // from a project's own page is automatically filed into it -- the global
 // Tasks page never passes this, so createTaskFromQuickAdd sees no
-// projectId there and files new tasks unfiled as it always has.
-export function QuickAddBar({ projectId }: { projectId?: string } = {}) {
+// projectId there and files new tasks unfiled as it always has. sectionId
+// works the same way, one level down, for a board column's own quick-add --
+// the "No Section" column simply doesn't pass it.
+export function QuickAddBar({ projectId, sectionId }: { projectId?: string; sectionId?: string } = {}) {
   const [state, formAction, pending] = useActionState(createTaskFromQuickAdd, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -26,6 +28,7 @@ export function QuickAddBar({ projectId }: { projectId?: string } = {}) {
     <form ref={formRef} action={formAction} className="flex flex-col gap-2">
       <div className="flex gap-2">
         {projectId && <input type="hidden" name="projectId" value={projectId} />}
+        {sectionId && <input type="hidden" name="sectionId" value={sectionId} />}
         <Input
           name="text"
           placeholder='Add a task... try "call mom tomorrow 5pm #family"'

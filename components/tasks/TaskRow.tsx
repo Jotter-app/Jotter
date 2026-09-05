@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { isPast } from "date-fns";
 import { Checkbox } from "@/components/ui/checkbox";
 import { priorityColor, priorityLabel } from "@/lib/tasks/priority";
-import { formatRelativeDays, isTodayInTimeZone } from "@/lib/dates/relativeDays";
+import { dueDateStatus } from "@/lib/tasks/dueDateStatus";
+import { formatRelativeDays } from "@/lib/dates/relativeDays";
 import { formatInTimeZone } from "@/lib/dates/formatInTimeZone";
 import { useTimeZone } from "@/components/shared/TimeZoneProvider";
 import { archiveTask, deleteTask, toggleTaskComplete } from "@/lib/actions/tasks";
@@ -49,12 +49,7 @@ export function TaskRow({
 
   const completed = task.completed_at !== null;
   const dueDate = task.due_at ? new Date(task.due_at) : null;
-  // isPast compares raw instants (`date.getTime() < Date.now()`), which is
-  // timezone-invariant, so it's left as-is -- only the calendar-day check
-  // needs the viewer's timezone, since "is this still today" depends on
-  // where the viewer's midnight falls.
-  const isOverdue = !completed && dueDate !== null && isPast(dueDate) && !isTodayInTimeZone(dueDate, timeZone);
-  const isDueToday = dueDate !== null && isTodayInTimeZone(dueDate, timeZone);
+  const { isOverdue, isDueToday } = dueDateStatus(dueDate, completed, timeZone);
   const completedSubtaskCount = subtasks.filter((s) => s.completed_at !== null).length;
 
   function handleToggle() {

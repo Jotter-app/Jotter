@@ -22,6 +22,7 @@ export interface InsertTaskParams {
   dueAt: Date | null;
   tagNames: string[];
   projectId?: string | null;
+  sectionId?: string | null;
 }
 
 export interface InsertTaskResult {
@@ -36,7 +37,7 @@ export interface InsertTaskResult {
 export async function insertTaskCore(
   supabase: SupabaseClient<Database>,
   userId: string,
-  { title, dueAt, tagNames, projectId = null }: InsertTaskParams
+  { title, dueAt, tagNames, projectId = null, sectionId = null }: InsertTaskParams
 ): Promise<InsertTaskResult> {
   const { data: task, error } = await supabase
     .from("tasks")
@@ -45,6 +46,7 @@ export async function insertTaskCore(
       title,
       due_at: dueAt ? dueAt.toISOString() : null,
       project_id: projectId,
+      section_id: sectionId,
     })
     .select("id")
     .single();
@@ -183,12 +185,16 @@ export async function createTaskFromQuickAdd(
   // Set only by a project page's own quick-add bar (a hidden field) -- the
   // global quick-add never sends this, so `projectId` stays null there.
   const projectId = formData.get("projectId");
+  // Set only by a board column's own quick-add bar -- the "No Section"
+  // column and every non-board quick-add never send this.
+  const sectionId = formData.get("sectionId");
 
   const result = await insertTaskCore(supabase, userId, {
     title,
     dueAt,
     tagNames,
     projectId: typeof projectId === "string" && projectId ? projectId : null,
+    sectionId: typeof sectionId === "string" && sectionId ? sectionId : null,
   });
   if (!result.ok) {
     return { error: result.error };
