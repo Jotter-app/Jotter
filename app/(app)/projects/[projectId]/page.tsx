@@ -7,16 +7,19 @@ import { ArchivedTaskRow } from "@/components/tasks/ArchivedTaskRow";
 import { ArchiveCompletedButton } from "@/components/tasks/ArchiveCompletedButton";
 import { ProjectHeader } from "@/components/projects/ProjectHeader";
 import { ProjectDeleteDialog } from "@/components/projects/ProjectDeleteDialog";
+import { ProjectBoard } from "@/components/projects/ProjectBoard";
+import { AddSectionButton } from "@/components/projects/AddSectionButton";
 import { groupTasksByDueDate } from "@/lib/tasks/groupTasksByDueDate";
 import { getHideNoteOnlyTags } from "@/lib/actions/settings";
 import { filterNoteOnlyTags } from "@/lib/tags/filterNoteOnlyTags";
 import { getUserTimeZone } from "@/lib/dates/getUserTimeZone";
 
-// Near-duplicate of app/(app)/tasks/page.tsx's rendering, scoped to one
-// project's tasks -- same due-date grouping, same TaskRow, same Completed/
-// Archived accordions. This reuse (not a new UI) is what keeps Projects
-// tractable without Sections: the project page is the Tasks page's own
-// rendering logic pointed at a filtered query.
+// A project with no sections renders a near-duplicate of app/(app)/tasks/
+// page.tsx's rendering, scoped to this project's tasks -- same due-date
+// grouping, same TaskRow. The moment a project has at least one section,
+// its active tasks render as a ProjectBoard instead -- opt-in per project,
+// so a project nobody has subdivided is untouched. Either way, the
+// Completed/Archived accordions below are shared and unconditional.
 export default async function ProjectPage({ params }: PageProps<"/projects/[projectId]">) {
   const { projectId } = await params;
   const supabase = await createClient();
@@ -33,6 +36,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[proj
     { data: taskNoteLinks },
     { data: subtasks },
     { data: allProjects },
+    { data: sectionRows },
     hideNoteOnlyTags,
   ] = await Promise.all([
     supabase
@@ -47,8 +51,12 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[proj
     supabase.from("task_note_links").select("task_id, notes(id, title, body_markdown, updated_at)"),
     supabase.from("tasks").select().not("parent_task_id", "is", null),
     supabase.from("projects").select().order("name"),
+    supabase.from("sections").select().eq("project_id", projectId).order("created_at"),
     getHideNoteOnlyTags(),
   ]);
+
+  const sections = sectionRows ?? [];
+  const hasSections = sections.length > 0;
 
   const subtasksByTaskId = new Map<string, NonNullable<typeof subtasks>>();
   for (const subtask of subtasks ?? []) {
@@ -89,7 +97,7 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[proj
     timeZone
   );
 
-  const sections = [
+  const dueDateGroups = [
     { title: "Overdue", tasks: overdue, dot: "bg-accent-700", ring: "ring-accent-700/20" },
     { title: "Today", tasks: today, dot: "bg-primary", ring: "ring-primary/20" },
     { title: "This Week", tasks: thisWeek, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
@@ -98,8 +106,16 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[proj
     { title: "No due date", tasks: noDueDate, dot: "bg-muted-foreground/50", ring: "ring-transparent" },
   ];
 
+  const tasksBySectionId = new Map<string | null, typeof active>();
+  for (const task of active) {
+    const key = task.section_id;
+    const existing = tasksBySectionId.get(key) ?? [];
+    existing.push(task);
+    tasksBySectionId.set(key, existing);
+  }
+
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6">
+    <main className={`mx-auto flex w-full flex-col gap-5 p-6 ${hasSections ? "max-w-6xl" : "max-w-2xl"}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
           <Link href="/projects" className="text-xs text-muted-foreground hover:text-foreground">
@@ -107,15 +123,31 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[proj
           </Link>
           <ProjectHeader projectId={project.id} name={project.name} />
         </div>
-        <ProjectDeleteDialog projectId={project.id} projectName={project.name} hasTasks={rows.length > 0} />
+        <div className="flex items-center gap-2">
+          {!hasSections && <AddSectionButton projectId={project.id} />}
+          <ProjectDeleteDialog projectId={project.id} projectName={project.name} hasTasks={rows.length > 0} />
+        </div>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm">
-        <QuickAddBar projectId={project.id} />
-      </div>
+      {hasSections ? (
+        <ProjectBoard
+          projectId={project.id}
+          sections={sections}
+          tasksBySectionId={tasksBySectionId}
+          allTags={allTags}
+          tagsByTaskId={tagsByTaskId}
+          allNotes={allNotes ?? []}
+          linkedNotesByTaskId={linkedNotesByTaskId}
+          subtasksByTaskId={subtasksByTaskId}
+        />
+      ) : (
+        <>
+          <div className="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm">
+            <QuickAddBar projectId={project.id} />
+          </div>
 
-      {sections.map(
-        (section) =>
+          {dueDateGroups.map(
+            (section) =>
           section.tasks.length > 0 && (
             <section
               key={section.title}
@@ -156,6 +188,8 @@ export default async function ProjectPage({ params }: PageProps<"/projects/[proj
         <p className="rounded-2xl border border-dashed p-3 text-center text-sm text-muted-foreground">
           {laterCount} more {laterCount === 1 ? "task" : "tasks"} further out
         </p>
+      )}
+        </>
       )}
 
       {completed.length > 0 && (

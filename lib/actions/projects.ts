@@ -80,12 +80,18 @@ export async function deleteProject(projectId: string, deleteTasks: boolean) {
   revalidatePath("/tasks");
 }
 
+// Also clears section_id: a section belongs to exactly one project, so a
+// task moved to a different project (or unfiled entirely) can never keep
+// pointing at a section from the project it just left. Safe unconditionally
+// -- ProjectPicker already filters the task's current project out of its
+// own options list, so every real call here is an actual change, never a
+// same-value no-op that would need to preserve an existing section.
 export async function assignTaskProjectCore(
   supabase: SupabaseClient<Database>,
   taskId: string,
   projectId: string | null
 ) {
-  await supabase.from("tasks").update({ project_id: projectId }).eq("id", taskId);
+  await supabase.from("tasks").update({ project_id: projectId, section_id: null }).eq("id", taskId);
 }
 
 export async function assignTaskProject(taskId: string, projectId: string | null) {
